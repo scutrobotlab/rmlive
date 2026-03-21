@@ -42,24 +42,11 @@ function onSelectTeam(teamName: string) {
 function onNextPanelCollapsedChange(collapsed: boolean) {
   emit('updateNextExpanded', !collapsed);
 }
-
-const liveStateTag = computed(() => {
-  if (props.selectedZoneLiveState === 1) {
-    return { label: '直播中', severity: 'success' as const };
-  }
-  return { label: '未直播', severity: 'warn' as const };
-});
 </script>
 
 <template>
   <Card>
-    <template #title> 当前对局 </template>
     <template #content>
-      <div class="hero-meta">
-        <Tag severity="contrast" :value="props.selectedZoneName ?? '未选择站点'" />
-        <Tag :severity="liveStateTag.severity" :value="liveStateTag.label" />
-      </div>
-
       <MatchBlock
         title="当前对局"
         :match="current"
@@ -100,13 +87,6 @@ const liveStateTag = computed(() => {
 </template>
 
 <style scoped>
-.hero-meta {
-  display: flex;
-  gap: 0.4rem;
-  flex-wrap: wrap;
-  margin-bottom: 0.55rem;
-}
-
 .next-panel {
   margin-top: 0.6rem;
   border: 1px solid rgb(148 163 184 / 0.24);

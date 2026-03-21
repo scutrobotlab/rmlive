@@ -5,6 +5,7 @@ import {
   extractLiveZones,
   fetchGroupRankInfo,
   fetchLiveGameInfo,
+  fetchRobotData,
   pickDefaultZoneId,
   resolveLiveStreamUrl,
   startRmPolling,
@@ -237,6 +238,15 @@ export const useRmDataStore = defineStore('rm-data', () => {
       })
       .catch(() => {
         // 失败时保持兜底展示，不影响主流程。
+      });
+
+    // 先做一次即时拉取，避免用户刚打开弹窗时看到空数据。
+    void fetchRobotData()
+      .then((data) => {
+        robotData.value = data;
+      })
+      .catch(() => {
+        // 后续轮询会继续重试，这里不阻断首屏流程。
       });
 
     pollingController = startRmPolling(
