@@ -64,8 +64,10 @@ export function resolvePayloadByZone(
     const currentMatch = item.currentMatch as Record<string, unknown> | undefined;
     const nextMatch = item.nextMatch as Record<string, unknown> | undefined;
 
-    return (currentMatch?.zone as Record<string, unknown> | undefined)
-      ?? (nextMatch?.zone as Record<string, unknown> | undefined);
+    return (
+      (currentMatch?.zone as Record<string, unknown> | undefined) ??
+      (nextMatch?.zone as Record<string, unknown> | undefined)
+    );
   }
 
   const matchedById = buckets.find((item) => {
