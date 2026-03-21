@@ -46,27 +46,29 @@ function toGroupLabel(teamName: string): string {
           <h3>{{ current ? '当前对局' : '暂无当前对局' }}</h3>
           <Tag v-if="current" :value="current.status" severity="info" />
         </header>
-        <div v-if="current" class="team-row">
-          <TeamInfoCard
-            :team-name="current.redTeam.teamName"
-            :college-name="current.redTeam.collegeName"
-            :logo="current.redTeam.logo"
-            :group-label="toGroupLabel(current.redTeam.teamName)"
-            @select="onSelectTeam"
-          />
+        <div v-if="current" class="match-body">
+          <div class="team-row">
+            <TeamInfoCard
+              :team-name="current.redTeam.teamName"
+              :college-name="current.redTeam.collegeName"
+              :logo="current.redTeam.logo"
+              :group-label="toGroupLabel(current.redTeam.teamName)"
+              @select="onSelectTeam"
+            />
 
-          <div class="score-card">
-            <div class="big-score">{{ current.score }}</div>
-            <div class="small-score">小局 {{ current.gameScore }}</div>
+            <TeamInfoCard
+              :team-name="current.blueTeam.teamName"
+              :college-name="current.blueTeam.collegeName"
+              :logo="current.blueTeam.logo"
+              :group-label="toGroupLabel(current.blueTeam.teamName)"
+              @select="onSelectTeam"
+            />
           </div>
 
-          <TeamInfoCard
-            :team-name="current.blueTeam.teamName"
-            :college-name="current.blueTeam.collegeName"
-            :logo="current.blueTeam.logo"
-            :group-label="toGroupLabel(current.blueTeam.teamName)"
-            @select="onSelectTeam"
-          />
+          <div class="score-line">
+            <span class="score-pill">比分 {{ current.score }}</span>
+            <span class="score-pill score-pill-sub">小局 {{ current.gameScore }}</span>
+          </div>
         </div>
 
         <p>阶段: {{ current?.stage ?? '-' }}</p>
@@ -81,27 +83,29 @@ function toGroupLabel(teamName: string): string {
           <h3>{{ next ? '下一场对局' : '暂无下一场信息' }}</h3>
           <Tag v-if="next" :value="next.status" severity="contrast" />
         </header>
-        <div v-if="next" class="team-row">
-          <TeamInfoCard
-            :team-name="next.redTeam.teamName"
-            :college-name="next.redTeam.collegeName"
-            :logo="next.redTeam.logo"
-            :group-label="toGroupLabel(next.redTeam.teamName)"
-            @select="onSelectTeam"
-          />
+        <div v-if="next" class="match-body">
+          <div class="team-row">
+            <TeamInfoCard
+              :team-name="next.redTeam.teamName"
+              :college-name="next.redTeam.collegeName"
+              :logo="next.redTeam.logo"
+              :group-label="toGroupLabel(next.redTeam.teamName)"
+              @select="onSelectTeam"
+            />
 
-          <div class="score-card">
-            <div class="big-score">{{ next.score }}</div>
-            <div class="small-score">小局 {{ next.gameScore }}</div>
+            <TeamInfoCard
+              :team-name="next.blueTeam.teamName"
+              :college-name="next.blueTeam.collegeName"
+              :logo="next.blueTeam.logo"
+              :group-label="toGroupLabel(next.blueTeam.teamName)"
+              @select="onSelectTeam"
+            />
           </div>
 
-          <TeamInfoCard
-            :team-name="next.blueTeam.teamName"
-            :college-name="next.blueTeam.collegeName"
-            :logo="next.blueTeam.logo"
-            :group-label="toGroupLabel(next.blueTeam.teamName)"
-            @select="onSelectTeam"
-          />
+          <div class="score-line">
+            <span class="score-pill">比分 {{ next.score }}</span>
+            <span class="score-pill score-pill-sub">小局 {{ next.gameScore }}</span>
+          </div>
         </div>
 
         <p>阶段: {{ next?.stage ?? '-' }}</p>
@@ -132,23 +136,40 @@ function toGroupLabel(teamName: string): string {
 
 .team-row {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 0.8rem;
   align-items: center;
+}
+
+.match-body {
   margin-top: 0.75rem;
 }
 
-.score-card {
-  text-align: center;
+.score-line {
+  margin-top: 0.7rem;
+  display: flex;
+  gap: 0.55rem;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
-.big-score {
-  font-size: 1.2rem;
+.score-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.82rem;
   font-weight: 700;
+  background: rgb(51 65 85 / 0.35);
 }
 
-.small-score {
-  font-size: 0.78rem;
-  opacity: 0.8;
+.score-pill-sub {
+  background: rgb(71 85 105 / 0.25);
+}
+
+@media (max-width: 760px) {
+  .team-row {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

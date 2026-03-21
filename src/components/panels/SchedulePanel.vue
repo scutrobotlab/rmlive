@@ -1,8 +1,12 @@
 <script setup lang="ts">
-import Button from 'primevue/button';
 import Card from 'primevue/card';
 import Column from 'primevue/column';
 import DataTable from 'primevue/datatable';
+import Tab from 'primevue/tab';
+import TabList from 'primevue/tablist';
+import TabPanel from 'primevue/tabpanel';
+import TabPanels from 'primevue/tabpanels';
+import Tabs from 'primevue/tabs';
 import { computed, ref } from 'vue';
 import type { Schedule } from '../../types/api';
 import TeamInfoCard from '../common/TeamInfoCard.vue';
@@ -178,70 +182,97 @@ function toGroupLabel(teamName: string): string {
   <Card>
     <template #title> 赛程安排 </template>
     <template #content>
-      <div class="tabs">
-        <Button
-          size="small"
-          :severity="tab === 'schedule' ? 'info' : 'secondary'"
-          label="赛程"
-          @click="tab = 'schedule'"
-        />
-        <Button size="small" :severity="tab === 'result' ? 'info' : 'secondary'" label="赛果" @click="tab = 'result'" />
-      </div>
+      <Tabs v-model:value="tab">
+        <TabList>
+          <Tab value="schedule">赛程</Tab>
+          <Tab value="result">赛果</Tab>
+        </TabList>
 
-      <DataTable
-        :value="tab === 'schedule' ? scheduleRows : resultRows"
-        paginator
-        :rows="8"
-        size="small"
-        stripedRows
-        tableStyle="min-width: 52rem"
-      >
-        <Column field="date" header="日期" />
-        <Column field="time" header="时间" />
-        <Column field="stage" header="阶段" />
-        <Column header="红方" style="min-width: 16rem">
-          <template #body="{ data }">
-            <div class="team-cell">
-              <TeamInfoCard
-                compact
-                :team-name="data.redTeam.teamName"
-                :college-name="data.redTeam.collegeName"
-                :logo="data.redTeam.logo"
-                :group-label="toGroupLabel(data.redTeam.teamName)"
-                @select="onSelectTeam"
-              />
-            </div>
-          </template>
-        </Column>
-        <Column header="蓝方" style="min-width: 16rem">
-          <template #body="{ data }">
-            <div class="team-cell">
-              <TeamInfoCard
-                compact
-                :team-name="data.blueTeam.teamName"
-                :college-name="data.blueTeam.collegeName"
-                :logo="data.blueTeam.logo"
-                :group-label="toGroupLabel(data.blueTeam.teamName)"
-                @select="onSelectTeam"
-              />
-            </div>
-          </template>
-        </Column>
-        <Column field="score" header="比分" />
-        <Column field="gameScore" header="小局" />
-        <Column field="status" header="状态" />
-      </DataTable>
+        <TabPanels>
+          <TabPanel value="schedule">
+            <DataTable :value="scheduleRows" paginator :rows="8" size="small" stripedRows tableStyle="min-width: 52rem">
+              <Column field="date" header="日期" />
+              <Column field="time" header="时间" />
+              <Column field="stage" header="阶段" />
+              <Column header="红方" style="min-width: 16rem">
+                <template #body="{ data }">
+                  <div class="team-cell">
+                    <TeamInfoCard
+                      compact
+                      :team-name="data.redTeam.teamName"
+                      :college-name="data.redTeam.collegeName"
+                      :logo="data.redTeam.logo"
+                      :group-label="toGroupLabel(data.redTeam.teamName)"
+                      @select="onSelectTeam"
+                    />
+                  </div>
+                </template>
+              </Column>
+              <Column header="蓝方" style="min-width: 16rem">
+                <template #body="{ data }">
+                  <div class="team-cell">
+                    <TeamInfoCard
+                      compact
+                      :team-name="data.blueTeam.teamName"
+                      :college-name="data.blueTeam.collegeName"
+                      :logo="data.blueTeam.logo"
+                      :group-label="toGroupLabel(data.blueTeam.teamName)"
+                      @select="onSelectTeam"
+                    />
+                  </div>
+                </template>
+              </Column>
+              <Column field="score" header="比分" />
+              <Column field="gameScore" header="小局" />
+              <Column field="status" header="状态" />
+            </DataTable>
+          </TabPanel>
+
+          <TabPanel value="result">
+            <DataTable :value="resultRows" paginator :rows="8" size="small" stripedRows tableStyle="min-width: 52rem">
+              <Column field="date" header="日期" />
+              <Column field="time" header="时间" />
+              <Column field="stage" header="阶段" />
+              <Column header="红方" style="min-width: 16rem">
+                <template #body="{ data }">
+                  <div class="team-cell">
+                    <TeamInfoCard
+                      compact
+                      :team-name="data.redTeam.teamName"
+                      :college-name="data.redTeam.collegeName"
+                      :logo="data.redTeam.logo"
+                      :group-label="toGroupLabel(data.redTeam.teamName)"
+                      @select="onSelectTeam"
+                    />
+                  </div>
+                </template>
+              </Column>
+              <Column header="蓝方" style="min-width: 16rem">
+                <template #body="{ data }">
+                  <div class="team-cell">
+                    <TeamInfoCard
+                      compact
+                      :team-name="data.blueTeam.teamName"
+                      :college-name="data.blueTeam.collegeName"
+                      :logo="data.blueTeam.logo"
+                      :group-label="toGroupLabel(data.blueTeam.teamName)"
+                      @select="onSelectTeam"
+                    />
+                  </div>
+                </template>
+              </Column>
+              <Column field="score" header="比分" />
+              <Column field="gameScore" header="小局" />
+              <Column field="status" header="状态" />
+            </DataTable>
+          </TabPanel>
+        </TabPanels>
+      </Tabs>
     </template>
   </Card>
 </template>
 
 <style scoped>
-.tabs {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.8rem;
-}
-
 .team-cell {
   min-width: 0;
 }
