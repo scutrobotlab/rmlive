@@ -41,6 +41,7 @@ jobs:
           else
             echo "VITE_BASE=/$REPO_NAME/" >> "$GITHUB_ENV"
           fi
+          echo "VITE_STATIC_PROXY=https://schedule.scutbot.cn/api/static" >> "$GITHUB_ENV"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

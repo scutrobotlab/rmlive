@@ -9,6 +9,7 @@ import type {
 } from '../types/api';
 import { fetchJson } from './http';
 import { startPolling, type PollingTask } from './polling';
+import { buildLiveJsonUrl } from './urlProxy';
 
 const API_BASE = 'https://rm-static.djicdn.com/live_json';
 
@@ -21,23 +22,23 @@ export const endpoints = {
 };
 
 export async function fetchLiveGameInfo() {
-  return fetchJson<LiveGameInfo>(endpoints.liveGameInfo);
+  return fetchJson<LiveGameInfo>(buildLiveJsonUrl(endpoints.liveGameInfo));
 }
 
 export async function fetchCurrentAndNextMatches() {
-  return fetchJson<CurrentAndNextMatches>(endpoints.currentAndNextMatches);
+  return fetchJson<CurrentAndNextMatches>(buildLiveJsonUrl(endpoints.currentAndNextMatches));
 }
 
 export async function fetchGroupsOrder() {
-  return fetchJson<GroupsOrder>(endpoints.groupsOrder);
+  return fetchJson<GroupsOrder>(buildLiveJsonUrl(endpoints.groupsOrder));
 }
 
 export async function fetchRobotData() {
-  return fetchJson<RobotData>(endpoints.robotData);
+  return fetchJson<RobotData>(buildLiveJsonUrl(endpoints.robotData));
 }
 
 export async function fetchSchedule() {
-  return fetchJson<Schedule>(endpoints.schedule);
+  return fetchJson<Schedule>(buildLiveJsonUrl(endpoints.schedule));
 }
 
 export interface RmPollingHandlers {

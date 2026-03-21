@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { computed } from 'vue';
+import { buildImageUrl } from '../../services/urlProxy';
+
 interface Props {
   teamName: string;
   collegeName?: string;
@@ -26,12 +29,14 @@ function onClick() {
   }
   emit('select', props.teamName);
 }
+
+const logoUrl = computed(() => buildImageUrl(props.logo));
 </script>
 
 <template>
   <article class="team-info" :class="{ compact, clickable }" @click="onClick">
     <div class="team-info-inner">
-      <img v-if="logo" :src="logo" :alt="teamName" />
+      <img v-if="logoUrl" :src="logoUrl" :alt="teamName" />
       <div class="meta">
         <div class="head-row">
           <h4>{{ teamName }}</h4>
