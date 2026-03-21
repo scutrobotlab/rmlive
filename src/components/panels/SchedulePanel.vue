@@ -7,6 +7,7 @@ import TabList from 'primevue/tablist';
 import TabPanel from 'primevue/tabpanel';
 import TabPanels from 'primevue/tabpanels';
 import Tabs from 'primevue/tabs';
+import Tag from 'primevue/tag';
 import { computed, ref } from 'vue';
 import type { Schedule } from '../../types/api';
 import TeamInfoCard from '../common/TeamInfoCard.vue';
@@ -53,6 +54,17 @@ function toStatusLabel(status: string): string {
     return '进行中';
   }
   return '未开始';
+}
+
+function toStatusSeverity(status: string): 'contrast' | 'warn' | 'success' {
+  const value = status.toUpperCase();
+  if (value === 'STARTED' || value === 'PLAYING') {
+    return 'warn';
+  }
+  if (value === 'DONE' || value === 'FINISHED' || value === 'ENDED') {
+    return 'success';
+  }
+  return 'contrast';
 }
 
 function isResultStatus(status: string): boolean {
@@ -193,7 +205,11 @@ function toGroupLabel(teamName: string): string {
             <DataTable :value="scheduleRows" paginator :rows="8" size="small" stripedRows tableStyle="min-width: 52rem">
               <Column field="date" header="日期" />
               <Column field="time" header="时间" />
-              <Column field="stage" header="阶段" />
+              <Column header="阶段">
+                <template #body="{ data }">
+                  <Tag severity="secondary" :value="data.stage" />
+                </template>
+              </Column>
               <Column header="红方" style="min-width: 16rem">
                 <template #body="{ data }">
                   <div class="team-cell">
@@ -224,7 +240,11 @@ function toGroupLabel(teamName: string): string {
               </Column>
               <Column field="score" header="比分" />
               <Column field="gameScore" header="小局" />
-              <Column field="status" header="状态" />
+              <Column header="状态">
+                <template #body="{ data }">
+                  <Tag :severity="toStatusSeverity(data.statusRaw)" :value="data.status" />
+                </template>
+              </Column>
             </DataTable>
           </TabPanel>
 
@@ -232,7 +252,11 @@ function toGroupLabel(teamName: string): string {
             <DataTable :value="resultRows" paginator :rows="8" size="small" stripedRows tableStyle="min-width: 52rem">
               <Column field="date" header="日期" />
               <Column field="time" header="时间" />
-              <Column field="stage" header="阶段" />
+              <Column header="阶段">
+                <template #body="{ data }">
+                  <Tag severity="secondary" :value="data.stage" />
+                </template>
+              </Column>
               <Column header="红方" style="min-width: 16rem">
                 <template #body="{ data }">
                   <div class="team-cell">
@@ -263,7 +287,11 @@ function toGroupLabel(teamName: string): string {
               </Column>
               <Column field="score" header="比分" />
               <Column field="gameScore" header="小局" />
-              <Column field="status" header="状态" />
+              <Column header="状态">
+                <template #body="{ data }">
+                  <Tag :severity="toStatusSeverity(data.statusRaw)" :value="data.status" />
+                </template>
+              </Column>
             </DataTable>
           </TabPanel>
         </TabPanels>

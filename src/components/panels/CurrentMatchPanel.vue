@@ -65,15 +65,24 @@ function toGroupLabel(teamName: string): string {
             />
           </div>
 
-          <div class="score-line">
-            <span class="score-pill">比分 {{ current.score }}</span>
-            <span class="score-pill score-pill-sub">小局 {{ current.gameScore }}</span>
+          <div class="score-board" aria-label="当前对局比分">
+            <div class="score-main">{{ current.score }}</div>
+            <div class="score-sub">小局 {{ current.gameScore }}</div>
           </div>
         </div>
 
-        <p>阶段: {{ current?.stage ?? '-' }}</p>
-        <p>场次: {{ current?.orderNumber ?? '-' }}</p>
-        <p>开始时间: {{ current?.startAt ?? '-' }}</p>
+        <template v-if="current">
+          <div class="meta-tags">
+            <Tag severity="secondary" :value="`阶段 ${current.stage}`" />
+            <Tag severity="secondary" :value="`场次 ${current.orderNumber}`" />
+            <Tag severity="contrast" :value="`开始 ${current.startAt}`" />
+          </div>
+        </template>
+        <template v-else>
+          <p>阶段: -</p>
+          <p>场次: -</p>
+          <p>开始时间: -</p>
+        </template>
       </section>
 
       <Divider />
@@ -101,16 +110,20 @@ function toGroupLabel(teamName: string): string {
               @select="onSelectTeam"
             />
           </div>
-
-          <div class="score-line">
-            <span class="score-pill">比分 {{ next.score }}</span>
-            <span class="score-pill score-pill-sub">小局 {{ next.gameScore }}</span>
-          </div>
         </div>
 
-        <p>阶段: {{ next?.stage ?? '-' }}</p>
-        <p>场次: {{ next?.orderNumber ?? '-' }}</p>
-        <p>预计开始: {{ next?.startAt ?? '-' }}</p>
+        <template v-if="next">
+          <div class="meta-tags">
+            <Tag severity="secondary" :value="`阶段 ${next.stage}`" />
+            <Tag severity="secondary" :value="`场次 ${next.orderNumber}`" />
+            <Tag severity="contrast" :value="`预计 ${next.startAt}`" />
+          </div>
+        </template>
+        <template v-else>
+          <p>阶段: -</p>
+          <p>场次: -</p>
+          <p>预计开始: -</p>
+        </template>
       </section>
     </template>
   </Card>
@@ -145,26 +158,32 @@ function toGroupLabel(teamName: string): string {
   margin-top: 0.75rem;
 }
 
-.score-line {
-  margin-top: 0.7rem;
-  display: flex;
-  gap: 0.55rem;
-  justify-content: center;
-  flex-wrap: wrap;
+.score-board {
+  margin-top: 0.8rem;
+  padding: 0.8rem 1rem;
+  border-radius: 0.8rem;
+  text-align: center;
+  background: linear-gradient(135deg, rgb(15 23 42 / 0.52), rgb(30 41 59 / 0.35));
+  border: 1px solid rgb(148 163 184 / 0.22);
 }
 
-.score-pill {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  padding: 0.25rem 0.7rem;
-  font-size: 0.82rem;
+.score-main {
+  font-size: clamp(1.5rem, 3vw, 2rem);
   font-weight: 700;
-  background: rgb(51 65 85 / 0.35);
+  letter-spacing: 0.04em;
 }
 
-.score-pill-sub {
-  background: rgb(71 85 105 / 0.25);
+.score-sub {
+  margin-top: 0.15rem;
+  font-size: 0.9rem;
+  opacity: 0.88;
+}
+
+.meta-tags {
+  margin-top: 0.65rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
 }
 
 @media (max-width: 760px) {
