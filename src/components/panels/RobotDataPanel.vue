@@ -139,16 +139,26 @@ const chartOptions = {
         <Chart type="bar" :data="chartData" :options="chartOptions" />
       </div>
 
-      <DataTable class="table" :value="rows" paginator :rows="6" size="small" stripedRows>
-        <Column field="team" header="队伍" />
-        <Column field="collegeName" header="学校" />
-        <Column field="robot" header="机器人" />
-        <Column field="robotType" header="类型" />
-        <Column field="eaKDA" header="KDA" />
-        <Column field="eagHurt" header="伤害" />
-        <Column field="eaSmallHitRate" header="命中率" />
-        <Column field="combatScore" header="综合" />
-      </DataTable>
+      <div class="table-wrap">
+        <DataTable
+          class="table"
+          :value="rows"
+          paginator
+          :rows="6"
+          size="small"
+          stripedRows
+          tableStyle="min-width: 42rem"
+        >
+          <Column field="team" header="队伍" />
+          <Column field="collegeName" header="学校" />
+          <Column field="robot" header="机器人" />
+          <Column field="robotType" header="类型" />
+          <Column field="eaKDA" header="KDA" />
+          <Column field="eagHurt" header="伤害" />
+          <Column field="eaSmallHitRate" header="命中率" />
+          <Column field="combatScore" header="综合" />
+        </DataTable>
+      </div>
     </template>
   </Card>
 </template>
@@ -167,5 +177,15 @@ const chartOptions = {
 
 .table {
   margin-top: 0.5rem;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+@media (max-width: 768px) {
+  .chart-wrap {
+    height: 210px;
+  }
 }
 </style>

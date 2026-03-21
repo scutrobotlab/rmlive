@@ -7,6 +7,7 @@ import Tag from 'primevue/tag';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import LivePlayer from './components/live/LivePlayer.vue';
 import CurrentMatchPanel from './components/panels/CurrentMatchPanel.vue';
+import MobileSchedulePanel from './components/panels/MobileSchedulePanel.vue';
 import RobotDataPanel from './components/panels/RobotDataPanel.vue';
 import SchedulePanel from './components/panels/SchedulePanel.vue';
 import { buildTeamGroupMap, extractGroupSections, type GroupSection } from './services/groupView';
@@ -21,6 +22,7 @@ import {
 import type { CurrentAndNextMatches, GroupsOrder, LiveGameInfo, RobotData, Schedule } from './types/api';
 
 const THEME_KEY = 'rm-live-theme';
+const MOBILE_BREAKPOINT = 768;
 
 const isDark = ref(true);
 
@@ -84,6 +86,11 @@ const effectiveStreamErrorMessage = computed(() => {
   return streamErrorMessage.value;
 });
 const hasError = computed(() => lastError.value.length > 0);
+const isMobile = ref(false);
+
+function updateViewport() {
+  isMobile.value = window.innerWidth <= MOBILE_BREAKPOINT;
+}
 
 function updateTimestamp() {
   lastUpdated.value = new Date().toLocaleTimeString('zh-CN', { hour12: false });
@@ -206,10 +213,13 @@ onMounted(() => {
   const stored = localStorage.getItem(THEME_KEY);
   isDark.value = stored ? stored === 'dark' : true;
   applyTheme();
+  updateViewport();
+  window.addEventListener('resize', updateViewport);
   startPolling();
 });
 
 onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateViewport);
   pollingController?.stopAll();
 });
 
@@ -267,6 +277,18 @@ const dialogTeamGroupSection = computed<GroupSection | null>(() => {
       </template>
     </Card>
 
+    <section class="match-hero">
+      <CurrentMatchPanel
+        :key="selectedZoneId ?? 'zone-empty'"
+        :payload="currentAndNextMatches"
+        :selected-zone-id="selectedZoneId"
+        :selected-zone-name="selectedZoneName"
+        :selected-zone-live-state="selectedZone?.liveState ?? null"
+        :team-group-map="teamGroupMap"
+        @team-select="onOpenTeamData"
+      />
+    </section>
+
     <section class="main-grid">
       <div class="live-column">
         <LivePlayer
@@ -276,22 +298,19 @@ const dialogTeamGroupSection = computed<GroupSection | null>(() => {
           @retry="retryLiveStream"
         />
       </div>
-
-      <div class="side-column">
-        <CurrentMatchPanel
-          :key="selectedZoneId ?? 'zone-empty'"
-          :payload="currentAndNextMatches"
-          :selected-zone-id="selectedZoneId"
-          :selected-zone-name="selectedZoneName"
-          :team-group-map="teamGroupMap"
-          @team-select="onOpenTeamData"
-        />
-      </div>
     </section>
 
     <section class="lower-grid">
       <div class="schedule-cell">
         <SchedulePanel
+          v-if="!isMobile"
+          :payload="schedule"
+          :selected-zone-id="selectedZoneId"
+          :team-group-map="teamGroupMap"
+          @team-select="onOpenTeamData"
+        />
+        <MobileSchedulePanel
+          v-else
           :payload="schedule"
           :selected-zone-id="selectedZoneId"
           :team-group-map="teamGroupMap"
@@ -344,6 +363,8 @@ const dialogTeamGroupSection = computed<GroupSection | null>(() => {
   max-width: 1280px;
   margin: 0 auto;
   padding: 1rem;
+  box-sizing: border-box;
+  overflow-x: clip;
 }
 
 .controls-card {
@@ -362,16 +383,18 @@ const dialogTeamGroupSection = computed<GroupSection | null>(() => {
   min-width: 10rem;
 }
 
+:deep(.p-dialog) {
+  max-width: calc(100vw - 1rem);
+}
+
 .main-grid {
   display: grid;
   gap: 1rem;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 1fr;
 }
 
-.side-column {
-  display: grid;
-  gap: 1rem;
-  align-content: start;
+.match-hero {
+  margin-bottom: 1rem;
 }
 
 .lower-grid {
@@ -444,11 +467,39 @@ const dialogTeamGroupSection = computed<GroupSection | null>(() => {
 }
 
 @media (max-width: 1024px) {
-  .main-grid {
+  .lower-grid {
     grid-template-columns: 1fr;
   }
+}
 
-  .lower-grid {
+@media (max-width: 768px) {
+  .app-shell {
+    padding: 0.65rem;
+  }
+
+  .controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .controls > * {
+    min-width: 0;
+  }
+
+  .zone-select,
+  .quality-select {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .controls :deep(.p-button) {
+    width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .controls {
     grid-template-columns: 1fr;
   }
 }
