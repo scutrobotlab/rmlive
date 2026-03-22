@@ -80,10 +80,10 @@ function pushDanmuToPlayer(msg: DanmuMessage) {
   }
 
   const payload = {
-    text: `${msg.username}${msg.nickname ? `(${msg.nickname})` : ''}: ${msg.text}`,
+    text: msg.text,
     color: '#FFFFFF',
     time: player.currentTime,
-    border: true,
+    border: false,
   };
 
   if (playerReady && danmukuPlugin?.emit) {

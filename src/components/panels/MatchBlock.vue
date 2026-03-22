@@ -42,6 +42,10 @@ function getScoreParts(score: string | undefined) {
   const [red = '0', blue = '0'] = raw.split(':').map((item) => item.trim());
   return { red, blue };
 }
+
+function showSlug(slug: string): boolean {
+  return Boolean(String(slug || '').trim());
+}
 </script>
 
 <template>
@@ -94,7 +98,7 @@ function getScoreParts(score: string | undefined) {
 
     <template v-if="match">
       <div class="meta-strip">
-        <Tag severity="secondary" icon="pi pi-link" :value="`Slug ${match.slug}`" />
+        <Tag v-if="showSlug(match.slug)" severity="secondary" icon="pi pi-link" :value="String(match.slug).trim()" />
         <Tag severity="secondary" icon="pi pi-sitemap" :value="`阶段 ${match.stage}`" />
         <Tag severity="secondary" icon="pi pi-hashtag" :value="`场次 ${match.orderNumber}`" />
         <Tag severity="contrast" icon="pi pi-clock" :value="`${startPrefix} ${match.startAt}`" />
@@ -102,7 +106,6 @@ function getScoreParts(score: string | undefined) {
     </template>
     <template v-else>
       <div class="meta-strip meta-strip-empty">
-        <Tag severity="secondary" icon="pi pi-link" value="Slug -" />
         <Tag severity="secondary" icon="pi pi-sitemap" value="阶段 -" />
         <Tag severity="secondary" icon="pi pi-hashtag" value="场次 -" />
         <Tag severity="contrast" icon="pi pi-clock" :value="`${startPrefix} -`" />
