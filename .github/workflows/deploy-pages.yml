@@ -19,6 +19,11 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      VITE_BASE: ${{ github.event.repository.name == format('{0}.github.io', github.repository_owner) && '/' || format('/{0}/', github.event.repository.name) }}
+      VITE_STATIC_PROXY: ${{ vars.VITE_STATIC_PROXY }}
+      VITE_CHATROOM_APP_ID: ${{ secrets.VITE_CHATROOM_APP_ID }}
+      VITE_CHATROOM_APP_KEY: ${{ secrets.VITE_CHATROOM_APP_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,17 +36,6 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
-
-      - name: Compute Vite base path
-        shell: bash
-        run: |
-          REPO_NAME="${GITHUB_REPOSITORY#*/}"
-          if [[ "$REPO_NAME" == *.github.io ]]; then
-            echo "VITE_BASE=/" >> "$GITHUB_ENV"
-          else
-            echo "VITE_BASE=/$REPO_NAME/" >> "$GITHUB_ENV"
-          fi
-          echo "VITE_STATIC_PROXY=https://schedule.scutbot.cn/api/static" >> "$GITHUB_ENV"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
