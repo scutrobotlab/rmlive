@@ -4,6 +4,7 @@ import Hls from 'hls.js';
 import Button from 'primevue/button';
 import Message from 'primevue/message';
 import ProgressSpinner from 'primevue/progressspinner';
+import { useToast } from 'primevue/usetoast';
 import { onBeforeUnmount, ref, watch } from 'vue';
 
 interface QualityOption {
@@ -21,6 +22,8 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+const toast = useToast();
+const hasShownAutoplayNotice = ref(false);
 
 const emit = defineEmits<{
   retry: [];
@@ -55,6 +58,7 @@ function mountPlayer(url: string) {
     container: container.value,
     url,
     volume: 0.7,
+    muted: true,
     autoplay: true,
     setting: true,
     hotkey: true,
@@ -65,7 +69,14 @@ function mountPlayer(url: string) {
     customType: {
       m3u8(video, m3u8Url) {
         if (Hls.isSupported()) {
-          const hls = new Hls();
+          const hls = new Hls({
+            lowLatencyMode: true,
+            backBufferLength: 8,
+            maxBufferLength: 12,
+            maxMaxBufferLength: 20,
+            liveSyncDurationCount: 3,
+            liveMaxLatencyDurationCount: 6,
+          });
           hls.loadSource(m3u8Url);
           hls.attachMedia(video);
           player?.on('destroy', () => hls.destroy());
@@ -74,6 +85,24 @@ function mountPlayer(url: string) {
         }
       },
     },
+  });
+
+  // Some browsers still require an explicit play attempt after source mount.
+  player.on('ready', () => {
+    try {
+      player?.play();
+      if (!hasShownAutoplayNotice.value) {
+        hasShownAutoplayNotice.value = true;
+        toast.add({
+          severity: 'info',
+          summary: '已自动播放',
+          detail: '已为你自动开始播放（静音）',
+          life: 2000,
+        });
+      }
+    } catch {
+      // Ignore autoplay rejection; controls remain available for manual play.
+    }
   });
 }
 

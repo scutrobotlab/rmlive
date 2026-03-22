@@ -9,6 +9,7 @@ import Select from 'primevue/select';
 import SelectButton from 'primevue/selectbutton';
 import Skeleton from 'primevue/skeleton';
 import Tag from 'primevue/tag';
+import Toast from 'primevue/toast';
 import ToggleButton from 'primevue/togglebutton';
 import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import CurrentMatchPanel from './components/panels/CurrentMatchPanel.vue';
@@ -235,6 +236,7 @@ onBeforeUnmount(() => {
 
 <template>
   <main class="app-shell">
+    <Toast position="top-center" />
     <header class="brand-head">
       <img :src="brandLogoUrl" alt="RMLive logo" class="brand-logo" />
       <div>
