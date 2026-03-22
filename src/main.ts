@@ -7,9 +7,11 @@ import Tooltip from 'primevue/tooltip';
 import { createApp } from 'vue';
 import App from './App.vue';
 
+import './styles/primevue-theme.css';
 const app = createApp(App);
 app.use(createPinia());
 
+import './styles/danmu-tooltip.css';
 app.use(PrimeVue, {
   theme: {
     preset: Aura,

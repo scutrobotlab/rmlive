@@ -8,8 +8,6 @@ const MOBILE_BREAKPOINT = 768;
 export const useUiStore = defineStore('ui', () => {
   const isDark = ref(true);
   const isMobile = ref(false);
-  const dataDialogVisible = ref(false);
-  const dataDialogTeam = ref<string | null>(null);
   const nextMatchExpanded = ref(false);
 
   function applyTheme() {
@@ -28,15 +26,6 @@ export const useUiStore = defineStore('ui', () => {
 
   function onResize() {
     updateViewport();
-  }
-
-  function openTeamData(teamName: string) {
-    if (!teamName || teamName === '-') {
-      return;
-    }
-
-    dataDialogTeam.value = teamName;
-    dataDialogVisible.value = true;
   }
 
   function setNextMatchExpanded(expanded: boolean) {
@@ -63,11 +52,8 @@ export const useUiStore = defineStore('ui', () => {
   return {
     isDark,
     isMobile,
-    dataDialogVisible,
-    dataDialogTeam,
     nextMatchExpanded,
     setDarkMode,
-    openTeamData,
     setNextMatchExpanded,
     initializeUi,
     teardownUi,

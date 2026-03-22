@@ -1,19 +1,26 @@
 import { defineStore } from 'pinia';
 import { computed, ref, watch } from 'vue';
+import { createBootstrapTimeoutRunner } from '../services/bootstrapTimeout';
 import { buildTeamGroupMap, extractGroupSections } from '../services/groupView';
 import {
   extractLiveZones,
-  fetchCurrentAndNextMatches,
-  fetchGroupRankInfo,
-  fetchGroupsOrder,
   fetchLiveGameInfo,
-  fetchRobotData,
-  fetchSchedule,
   pickDefaultZoneId,
   resolveLiveStreamUrl,
   startRmPolling,
   type RmPollingController,
 } from '../services/rmApi';
+import { fetchBootstrapData, getFulfilledValue } from '../services/rmBootstrap';
+import { extractInferredLiveZoneIdSet, extractScheduleZoneIdSet } from '../services/rmPayloadView';
+import { resolveDefaultQualityRes, resolveEffectiveStreamErrorMessage } from '../services/rmStreamView';
+import { pickBestZoneCandidate, shouldAutoPromoteZone } from '../services/zoneSelection';
+import {
+  normalizeZoneId,
+  resolveZoneUiState,
+  toZoneOptionItem,
+  type ZoneOptionItem,
+  type ZoneUiState,
+} from '../services/zoneView';
 import type {
   CurrentAndNextMatches,
   GroupRankInfo,
@@ -22,19 +29,6 @@ import type {
   RobotData,
   Schedule,
 } from '../types/api';
-
-type ZoneUiState = 'live' | 'offline' | 'upcoming' | 'ended';
-
-interface ZoneOptionItem {
-  label: string;
-  value: string;
-  state: ZoneUiState;
-  icon: string;
-  liveLogo: boolean;
-  title: string;
-  dateText: string;
-  disabled: boolean;
-}
 
 export const useRmDataStore = defineStore('rm-data', () => {
   const liveGameInfo = ref<LiveGameInfo | null>(null);
@@ -65,191 +59,14 @@ export const useRmDataStore = defineStore('rm-data', () => {
   });
   const selectedZoneName = computed(() => selectedZone.value?.zoneName ?? null);
 
-  function normalizeZoneId(value: unknown): string {
-    const raw = String(value ?? '').trim();
-    if (!raw) {
-      return '';
-    }
+  const inferredLiveZoneIdSet = computed(() => extractInferredLiveZoneIdSet(currentAndNextMatches.value));
 
-    const numeric = Number(raw);
-    if (Number.isFinite(numeric)) {
-      return String(numeric);
-    }
-
-    return raw;
-  }
-
-  const inferredLiveZoneIdSet = computed(() => {
-    const payload = currentAndNextMatches.value;
-    if (!payload) {
-      return new Set<string>();
-    }
-
-    const buckets = Array.isArray(payload)
-      ? payload
-      : (((payload as Record<string, unknown>).data ??
-          (payload as Record<string, unknown>).list ??
-          (payload as Record<string, unknown>).records ??
-          []) as unknown[]);
-
-    const liveStatuses = new Set(['STARTED', 'RUNNING', 'IN_PROGRESS', 'ONGOING', 'PLAYING']);
-    const ids = new Set<string>();
-
-    for (const rawItem of buckets) {
-      if (!rawItem || typeof rawItem !== 'object') {
-        continue;
-      }
-
-      const item = rawItem as Record<string, unknown>;
-      const currentMatch = item.currentMatch as Record<string, unknown> | undefined;
-      const status = String(currentMatch?.status ?? '')
-        .trim()
-        .toUpperCase();
-
-      if (!liveStatuses.has(status)) {
-        continue;
-      }
-
-      const zone =
-        (currentMatch?.zone as Record<string, unknown> | undefined) ??
-        (item.zone as Record<string, unknown> | undefined) ??
-        undefined;
-      const id = normalizeZoneId(zone?.id ?? zone?.zoneId ?? item.zoneId);
-      if (id) {
-        ids.add(id);
-      }
-    }
-
-    return ids;
-  });
-
-  const scheduleZoneIdSet = computed(() => {
-    const payload = schedule.value;
-    if (!payload || typeof payload !== 'object') {
-      return new Set<string>();
-    }
-
-    const root = payload as Record<string, unknown>;
-    const fromGraph = (
-      ((root.data as Record<string, unknown> | undefined)?.event as Record<string, unknown> | undefined)?.zones as
-        | Record<string, unknown>
-        | undefined
-    )?.nodes;
-    const fromCurrentEvent = ((
-      (root.current_event as Record<string, unknown> | undefined)?.zones as Record<string, unknown> | undefined
-    )?.nodes ??
-      ((root.currentEvent as Record<string, unknown> | undefined)?.zones as Record<string, unknown> | undefined)
-        ?.nodes) as unknown;
-
-    const zones = Array.isArray(fromGraph)
-      ? (fromGraph as Record<string, unknown>[])
-      : Array.isArray(fromCurrentEvent)
-        ? (fromCurrentEvent as Record<string, unknown>[])
-        : [];
-
-    const ids = new Set<string>();
-    zones.forEach((item) => {
-      const id = normalizeZoneId((item as Record<string, unknown>).id);
-      if (id) {
-        ids.add(id);
-      }
-    });
-
-    return ids;
-  });
-
-  function formatDate(value: number | null): string {
-    if (!value) {
-      return '-';
-    }
-
-    const ms = value > 10_000_000_000 ? value : value * 1000;
-    const d = new Date(ms);
-    if (Number.isNaN(d.getTime())) {
-      return '-';
-    }
-
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  }
-
-  function resolveZoneUiState(zone: (typeof liveZones.value)[number], nowEpoch: number): ZoneUiState {
-    if (zone.liveState === 1) {
-      return 'live';
-    }
-
-    // 如果有schedule时间表信息，用来判断是otherwise还是ended
-    if (zone.startAt && nowEpoch < zone.startAt) {
-      return 'upcoming';
-    }
-
-    if (zone.endAt && nowEpoch > zone.endAt) {
-      return 'ended';
-    }
-
-    return 'offline';
-  }
+  const scheduleZoneIdSet = computed(() => extractScheduleZoneIdSet(schedule.value));
 
   const zoneOptions = computed<ZoneOptionItem[]>(() => {
     const nowEpoch = Math.floor(Date.now() / 1000);
 
-    return liveZones.value.map((item) => {
-      const state = resolveZoneUiState(item, nowEpoch);
-
-      if (state === 'live') {
-        return {
-          label: item.zoneName,
-          value: item.zoneId,
-          state,
-          icon: 'pi pi-video',
-          liveLogo: true,
-          title: item.zoneName,
-          dateText: '',
-          disabled: false,
-        };
-      }
-
-      if (state === 'offline') {
-        return {
-          label: item.zoneName,
-          value: item.zoneId,
-          state,
-          icon: 'pi pi-video-off',
-          liveLogo: false,
-          title: item.zoneName,
-          dateText: '',
-          disabled: false,
-        };
-      }
-
-      if (state === 'upcoming') {
-        const dateText = formatDate(item.startAt);
-        return {
-          label: item.zoneName,
-          value: item.zoneId,
-          state,
-          icon: 'pi pi-clock',
-          liveLogo: false,
-          title: item.zoneName,
-          dateText,
-          disabled: true,
-        };
-      }
-
-      const dateText = formatDate(item.endAt);
-      return {
-        label: item.zoneName,
-        value: item.zoneId,
-        state,
-        icon: 'pi pi-check-circle',
-        liveLogo: false,
-        title: item.zoneName,
-        dateText,
-        disabled: true,
-      };
-    });
+    return liveZones.value.map((item) => toZoneOptionItem(item, nowEpoch));
   });
 
   const qualityOptions = computed(() => {
@@ -283,28 +100,14 @@ export const useRmDataStore = defineStore('rm-data', () => {
     return zone.liveState === 1 || inferredLiveZoneIdSet.value.has(normalizeZoneId(zone.zoneId));
   });
   const effectiveStreamUrl = computed(() => (canPlaySelectedZone.value ? streamUrl.value : null));
-  const effectiveStreamErrorMessage = computed(() => {
-    const zone = selectedZone.value;
-
-    // 兜底逻辑：如果无法播放且有zone被选中，显示zone相关的提示
-    if (!canPlaySelectedZone.value && zone) {
-      const state = selectedZoneUiState.value;
-
-      if (state === 'upcoming') {
-        return `${zone.zoneName} 尚未开播`;
-      }
-
-      if (state === 'ended') {
-        return `${zone.zoneName} 已完赛`;
-      }
-
-      // 其他无法播放的情况（offline或流不可用）
-      return `${zone.zoneName} 暂无可用直播流`;
-    }
-
-    // 返回通用错误信息
-    return streamErrorMessage.value;
-  });
+  const effectiveStreamErrorMessage = computed(() =>
+    resolveEffectiveStreamErrorMessage(
+      canPlaySelectedZone.value,
+      selectedZone.value,
+      selectedZoneUiState.value,
+      streamErrorMessage.value,
+    ),
+  );
 
   const groupSections = computed(() =>
     extractGroupSections(groupsOrder.value, selectedZoneId.value, selectedZoneName.value),
@@ -320,60 +123,51 @@ export const useRmDataStore = defineStore('rm-data', () => {
     }
 
     const enabledOptions = options.filter((item) => !item.disabled);
-    const liveFromMatches = enabledOptions.find((item) => inferredLiveZoneIdSet.value.has(normalizeZoneId(item.value)));
-
     const currentSelected = normalizeZoneId(selectedZoneId.value);
     const currentOption = enabledOptions.find((item) => normalizeZoneId(item.value) === currentSelected) ?? null;
 
     const zones = liveZones.value;
     const preferred = pickDefaultZoneId(zones);
+    const liveFromMatches = enabledOptions.find((item) => inferredLiveZoneIdSet.value.has(normalizeZoneId(item.value)));
     const withPlayableStream = enabledOptions.find((item) => {
       const zone = zones.find((z) => normalizeZoneId(z.zoneId) === normalizeZoneId(item.value));
       return Boolean(zone?.qualities?.[0]?.src);
     });
-    const preferredEnabled = preferred
-      ? enabledOptions.find((item) => normalizeZoneId(item.value) === normalizeZoneId(preferred))
-      : null;
-    const withSchedule = enabledOptions.find((item) => scheduleZoneIdSet.value.has(normalizeZoneId(item.value)));
-    const fallbackEnabled = enabledOptions[0] ?? null;
-    const bestCandidate =
-      liveFromMatches?.value ??
-      withPlayableStream?.value ??
-      preferredEnabled?.value ??
-      withSchedule?.value ??
-      fallbackEnabled?.value ??
-      options[0].value;
 
-    if (!currentOption) {
+    const bestCandidate = pickBestZoneCandidate({
+      options,
+      enabledOptions,
+      inferredLiveZoneIdSet: inferredLiveZoneIdSet.value,
+      scheduleZoneIdSet: scheduleZoneIdSet.value,
+      liveZones: zones,
+      preferredZoneId: preferred,
+    });
+
+    if (!currentOption && bestCandidate) {
       selectedZoneId.value = bestCandidate;
       return;
     }
 
-    // 用户未手动切站点前，允许在首屏数据陆续到达时自动提升到更优站点。
-    if (!hasManualZoneSelection.value) {
-      const currentIsLive = inferredLiveZoneIdSet.value.has(normalizeZoneId(currentOption.value));
-      const shouldPromoteToLive = Boolean(liveFromMatches && !currentIsLive);
-      const currentZone = zones.find((z) => normalizeZoneId(z.zoneId) === normalizeZoneId(currentOption.value));
-      const currentHasPlayableStream = Boolean(currentZone?.qualities?.[0]?.src);
-      const shouldPromoteToPlayable = !currentHasPlayableStream && Boolean(withPlayableStream);
+    if (!currentOption || !bestCandidate) {
+      return;
+    }
 
-      if (shouldPromoteToLive || shouldPromoteToPlayable) {
-        selectedZoneId.value = bestCandidate;
-      }
+    if (
+      shouldAutoPromoteZone({
+        hasManualZoneSelection: hasManualZoneSelection.value,
+        currentOptionValue: currentOption.value,
+        liveFromMatchesValue: liveFromMatches?.value ?? null,
+        withPlayableStreamValue: withPlayableStream?.value ?? null,
+        inferredLiveZoneIdSet: inferredLiveZoneIdSet.value,
+        liveZones: zones,
+      })
+    ) {
+      selectedZoneId.value = bestCandidate;
     }
   }
 
   function ensureQualitySelection() {
-    const zone = selectedZone.value;
-    if (!zone) {
-      selectedQualityRes.value = null;
-      return;
-    }
-
-    const hasQuality = zone.qualities.some((item) => item.res === selectedQualityRes.value);
-    if (!hasQuality) {
-      selectedQualityRes.value = zone.qualities[0]?.res ?? null;
-    }
+    selectedQualityRes.value = resolveDefaultQualityRes(selectedZone.value, selectedQualityRes.value);
   }
 
   function setZone(value: string | null) {
@@ -418,68 +212,53 @@ export const useRmDataStore = defineStore('rm-data', () => {
       const startTime = Date.now();
       const TOTAL_BOOTSTRAP_TIMEOUT_MS = 15000; // 整个bootstrap最多15秒
       const PER_REQUEST_TIMEOUT_MS = 8000; // 每个单独请求最多8秒
+      const withBootstrapTimeout = createBootstrapTimeoutRunner(startTime, {
+        totalTimeoutMs: TOTAL_BOOTSTRAP_TIMEOUT_MS,
+        perRequestTimeoutMs: PER_REQUEST_TIMEOUT_MS,
+      });
 
-      function withBootstrapTimeout<T>(promise: Promise<T>): Promise<T> {
-        return new Promise<T>((resolve, reject) => {
-          const elapsedTime = Date.now() - startTime;
-          const remainingTime = Math.max(1000, TOTAL_BOOTSTRAP_TIMEOUT_MS - elapsedTime); // 至少留1秒
-          const timeout = Math.min(PER_REQUEST_TIMEOUT_MS, remainingTime);
-
-          const timer = setTimeout(() => reject(new Error('bootstrap timeout')), timeout);
-          promise
-            .then((value) => {
-              clearTimeout(timer);
-              resolve(value);
-            })
-            .catch((error) => {
-              clearTimeout(timer);
-              reject(error);
-            });
-        });
-      }
-
-      const [
+      const {
         liveGameInfoResult,
         currentAndNextResult,
         groupsOrderResult,
         scheduleResult,
         robotResult,
         groupRankResult,
-      ] = await Promise.allSettled([
-        withBootstrapTimeout(fetchLiveGameInfo()),
-        withBootstrapTimeout(fetchCurrentAndNextMatches()),
-        withBootstrapTimeout(fetchGroupsOrder()),
-        withBootstrapTimeout(fetchSchedule()),
-        withBootstrapTimeout(fetchRobotData()),
-        withBootstrapTimeout(fetchGroupRankInfo()),
-      ]);
+      } = await fetchBootstrapData(withBootstrapTimeout);
 
       if (seq !== bootstrapSeq) {
         return;
       }
 
-      if (liveGameInfoResult.status === 'fulfilled') {
-        liveGameInfo.value = liveGameInfoResult.value;
+      const nextLiveGameInfo = getFulfilledValue(liveGameInfoResult);
+      const nextCurrentAndNext = getFulfilledValue(currentAndNextResult);
+      const nextGroupsOrder = getFulfilledValue(groupsOrderResult);
+      const nextSchedule = getFulfilledValue(scheduleResult);
+      const nextRobotData = getFulfilledValue(robotResult);
+      const nextGroupRankInfo = getFulfilledValue(groupRankResult);
+
+      if (nextLiveGameInfo) {
+        liveGameInfo.value = nextLiveGameInfo;
       }
 
-      if (currentAndNextResult.status === 'fulfilled') {
-        currentAndNextMatches.value = currentAndNextResult.value;
+      if (nextCurrentAndNext) {
+        currentAndNextMatches.value = nextCurrentAndNext;
       }
 
-      if (groupsOrderResult.status === 'fulfilled') {
-        groupsOrder.value = groupsOrderResult.value;
+      if (nextGroupsOrder) {
+        groupsOrder.value = nextGroupsOrder;
       }
 
-      if (scheduleResult.status === 'fulfilled') {
-        schedule.value = scheduleResult.value;
+      if (nextSchedule) {
+        schedule.value = nextSchedule;
       }
 
-      if (robotResult.status === 'fulfilled') {
-        robotData.value = robotResult.value;
+      if (nextRobotData) {
+        robotData.value = nextRobotData;
       }
 
-      if (groupRankResult.status === 'fulfilled') {
-        groupRankInfo.value = groupRankResult.value;
+      if (nextGroupRankInfo) {
+        groupRankInfo.value = nextGroupRankInfo;
       }
 
       ensureZoneSelection();

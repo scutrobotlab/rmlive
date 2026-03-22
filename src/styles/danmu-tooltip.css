@@ -1,0 +1,89 @@
+/* Danmu Tooltip Global Styles */
+/* 从 DanmuItem.vue 的 :global() 样式提取而来，改为使用 CSS 变量 */
+
+.p-tooltip .p-tooltip-text {
+  max-width: min(22rem, calc(100vw - 2rem));
+  box-sizing: border-box;
+  padding: 0.45rem;
+  background: var(--danmu-tip-bg);
+}
+
+.danmu-tip-card {
+  width: min(20rem, calc(100vw - 2.6rem));
+  max-width: 100%;
+  color: var(--danmu-tip-text);
+  display: grid;
+  gap: 0.45rem;
+}
+
+.danmu-tip-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+}
+
+.danmu-tip-name {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--danmu-tip-name);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.danmu-tip-source {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  line-height: 1;
+  padding: 0.2rem 0.38rem;
+  border-radius: 999px;
+  background: var(--danmu-tip-source-bg);
+  color: var(--danmu-tip-source-text);
+}
+
+.danmu-tip-message {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--danmu-tip-message-text);
+  padding: 0.42rem 0.5rem;
+  border-radius: 0.45rem;
+  background: var(--danmu-tip-message-bg);
+  word-break: break-word;
+}
+
+.danmu-tip-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28rem;
+}
+
+.danmu-tip-chip {
+  font-size: 0.64rem;
+  line-height: 1;
+  padding: 0.22rem 0.38rem;
+  border-radius: 999px;
+  background: var(--danmu-tip-chip-bg);
+  color: var(--danmu-tip-chip-text);
+}
+
+.danmu-tip-chip--school {
+  background: var(--danmu-tip-chip-school-bg);
+  color: var(--danmu-tip-chip-school-text);
+}
+
+.danmu-tip-raw {
+  margin: 0;
+  font-size: 0.67rem;
+  line-height: 1.3;
+  color: var(--danmu-tip-raw-text);
+  word-break: break-all;
+}
+
+.danmu-tip-time {
+  font-size: 0.63rem;
+  color: var(--danmu-tip-time-text);
+  word-break: break-word;
+}

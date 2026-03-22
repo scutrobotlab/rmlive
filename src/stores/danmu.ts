@@ -48,16 +48,20 @@ export const useDanmuStore = defineStore('danmu', () => {
   const messages = ref<DanmuMessage[]>([]);
   const maxMessages = 180;
 
-  function resetMessages() {
+  function clearMessages() {
     messages.value = [];
   }
 
-  function pushMessage(msg: DanmuMessage) {
+  function addMessage(msg: DanmuMessage) {
     messages.value.unshift(msg);
     if (messages.value.length > maxMessages) {
       messages.value.pop();
     }
   }
+
+  // Backward compatibility while migrating call sites.
+  const resetMessages = clearMessages;
+  const pushMessage = addMessage;
 
   function resolveDisplaySchool(msg: DanmuMessage): string {
     if (msg.schoolName?.trim()) {
@@ -132,6 +136,8 @@ export const useDanmuStore = defineStore('danmu', () => {
 
   return {
     messages,
+    clearMessages,
+    addMessage,
     resetMessages,
     pushMessage,
     resolveDisplaySchool,
