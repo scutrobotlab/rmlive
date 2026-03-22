@@ -260,7 +260,8 @@ onBeforeUnmount(() => {
               <template #option="slotProps">
                 <span class="zone-option-item" :class="`state-${slotProps.option.state}`">
                   <span v-if="slotProps.option.liveLogo" class="zone-start-badge" aria-hidden="true">
-                    <i class="pi pi-video" />
+                    <span class="zone-live-dot" />
+                    <span class="zone-live-text">LIVE</span>
                   </span>
                   <i v-else :class="slotProps.option.icon" aria-hidden="true" />
                   <span class="zone-option-texts">
@@ -291,7 +292,8 @@ onBeforeUnmount(() => {
               <template #option="slotProps">
                 <span class="zone-option-item" :class="`state-${slotProps.option.state}`">
                   <span v-if="slotProps.option.liveLogo" class="zone-start-badge" aria-hidden="true">
-                    <i class="pi pi-video" />
+                    <span class="zone-live-dot" />
+                    <span class="zone-live-text">LIVE</span>
                   </span>
                   <i v-else :class="slotProps.option.icon" aria-hidden="true" />
                   <span class="zone-option-texts">
@@ -445,6 +447,15 @@ onBeforeUnmount(() => {
   --bg-start: #f8fafc;
   --bg-end: #e2e8f0;
   --bg-radial: rgba(14, 165, 233, 0.2);
+  /* 记分板主题颜色 */
+  --scoreboard-bg-light: linear-gradient(135deg, rgba(219, 234, 254, 0.45), rgba(191, 219, 254, 0.35));
+  --scoreboard-bg-dark: linear-gradient(135deg, rgb(2 6 23 / 0.72), rgb(30 58 138 / 0.34));
+  --scoreboard-border: rgb(148, 163, 184, 0.25);
+  --scoreboard-box-shadow: inset 0 1px 0 rgba(191, 219, 254, 0.15);
+  --score-side-bg-light: rgba(226, 232, 240, 0.48);
+  --score-side-bg-dark: rgb(15 23 42 / 0.42);
+  --score-side-red-border: rgb(248 113 113 / 0.35);
+  --score-side-blue-border: rgb(96 165 250 / 0.35);
 }
 
 :global(html.app-dark) {
@@ -452,6 +463,15 @@ onBeforeUnmount(() => {
   --bg-start: #020617;
   --bg-end: #0f172a;
   --bg-radial: rgba(0, 112, 243, 0.22);
+  /* 记分板主题颜色 */
+  --scoreboard-bg-light: linear-gradient(135deg, rgb(2 6 23 / 0.72), rgb(30 58 138 / 0.34));
+  --scoreboard-bg-dark: linear-gradient(135deg, rgb(2 6 23 / 0.72), rgb(30 58 138 / 0.34));
+  --scoreboard-border: rgb(96 165 250 / 0.35);
+  --scoreboard-box-shadow: inset 0 1px 0 rgb(191 219 254 / 0.22);
+  --score-side-bg-light: rgb(15 23 42 / 0.42);
+  --score-side-bg-dark: rgb(15 23 42 / 0.42);
+  --score-side-red-border: rgb(248 113 113 / 0.4);
+  --score-side-blue-border: rgb(96 165 250 / 0.4);
 }
 
 .app-shell {
@@ -523,12 +543,28 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.25rem;
-  height: 1.25rem;
+  gap: 0.24rem;
+  padding: 0.1rem 0.4rem;
   border-radius: 999px;
-  font-size: 0.72rem;
-  background: #dc2626;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: linear-gradient(90deg, #dc2626, #f43f5e);
   color: #fff;
+  box-shadow: 0 2px 8px rgb(244 63 94 / 0.34);
+}
+
+.zone-live-dot {
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 0 0 0 rgb(255 255 255 / 0.8);
+  animation: live-dot-pulse 1.6s ease-out infinite;
+}
+
+.zone-live-text {
+  line-height: 1;
 }
 
 .zone-option-texts {
@@ -552,7 +588,7 @@ onBeforeUnmount(() => {
   opacity: 0.72;
 }
 
-.zone-option-item.state-live i {
+.zone-option-item.state-live > i {
   color: #22c55e;
 }
 
@@ -570,6 +606,16 @@ onBeforeUnmount(() => {
 
 .zone-option-item.state-ended i {
   color: #94a3b8;
+}
+
+@keyframes live-dot-pulse {
+  70% {
+    box-shadow: 0 0 0 0.34rem rgb(255 255 255 / 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgb(255 255 255 / 0);
+  }
 }
 
 .theme-toggle-btn {

@@ -154,9 +154,9 @@ function getScoreParts(score: string | undefined) {
   padding: 0.8rem 0.9rem;
   border-radius: 0.8rem;
   text-align: center;
-  background: linear-gradient(135deg, rgb(2 6 23 / 0.72), rgb(30 58 138 / 0.34));
-  border: 1px solid rgb(96 165 250 / 0.35);
-  box-shadow: inset 0 1px 0 rgb(191 219 254 / 0.22);
+  background: var(--scoreboard-bg-light);
+  border: 1px solid var(--scoreboard-border);
+  box-shadow: var(--scoreboard-box-shadow);
 }
 
 .score-grid {
@@ -175,7 +175,7 @@ function getScoreParts(score: string | undefined) {
 .score-side {
   border-radius: 0.65rem;
   padding: 0.5rem 0.45rem;
-  background: rgb(15 23 42 / 0.42);
+  background: var(--score-side-bg-light);
 }
 
 .score-side small {
@@ -191,11 +191,11 @@ function getScoreParts(score: string | undefined) {
 }
 
 .score-side-red {
-  border: 1px solid rgb(248 113 113 / 0.4);
+  border: 1px solid var(--score-side-red-border);
 }
 
 .score-side-blue {
-  border: 1px solid rgb(96 165 250 / 0.4);
+  border: 1px solid var(--score-side-blue-border);
 }
 
 .score-sub-tag {

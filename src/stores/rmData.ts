@@ -59,6 +59,64 @@ export const useRmDataStore = defineStore('rm-data', () => {
   });
   const selectedZoneName = computed(() => selectedZone.value?.zoneName ?? null);
 
+  function normalizeZoneId(value: unknown): string {
+    const raw = String(value ?? '').trim();
+    if (!raw) {
+      return '';
+    }
+
+    const numeric = Number(raw);
+    if (Number.isFinite(numeric)) {
+      return String(numeric);
+    }
+
+    return raw;
+  }
+
+  const inferredLiveZoneIdSet = computed(() => {
+    const payload = currentAndNextMatches.value;
+    if (!payload) {
+      return new Set<string>();
+    }
+
+    const buckets = Array.isArray(payload)
+      ? payload
+      : (((payload as Record<string, unknown>).data ??
+          (payload as Record<string, unknown>).list ??
+          (payload as Record<string, unknown>).records ??
+          []) as unknown[]);
+
+    const liveStatuses = new Set(['STARTED', 'RUNNING', 'IN_PROGRESS', 'ONGOING', 'PLAYING']);
+    const ids = new Set<string>();
+
+    for (const rawItem of buckets) {
+      if (!rawItem || typeof rawItem !== 'object') {
+        continue;
+      }
+
+      const item = rawItem as Record<string, unknown>;
+      const currentMatch = item.currentMatch as Record<string, unknown> | undefined;
+      const status = String(currentMatch?.status ?? '')
+        .trim()
+        .toUpperCase();
+
+      if (!liveStatuses.has(status)) {
+        continue;
+      }
+
+      const zone =
+        (currentMatch?.zone as Record<string, unknown> | undefined) ??
+        (item.zone as Record<string, unknown> | undefined) ??
+        undefined;
+      const id = normalizeZoneId(zone?.id ?? zone?.zoneId ?? item.zoneId);
+      if (id) {
+        ids.add(id);
+      }
+    }
+
+    return ids;
+  });
+
   function formatDate(value: number | null): string {
     if (!value) {
       return '-';
@@ -77,7 +135,7 @@ export const useRmDataStore = defineStore('rm-data', () => {
   }
 
   function resolveZoneUiState(zone: (typeof liveZones.value)[number], nowEpoch: number): ZoneUiState {
-    if (zone.liveState === 1) {
+    if (zone.liveState === 1 || inferredLiveZoneIdSet.value.has(normalizeZoneId(zone.zoneId))) {
       return 'live';
     }
 
@@ -164,7 +222,14 @@ export const useRmDataStore = defineStore('rm-data', () => {
   const streamUrl = computed(() =>
     resolveLiveStreamUrl(liveGameInfo.value, selectedZoneId.value, selectedQualityRes.value),
   );
-  const canPlaySelectedZone = computed(() => (selectedZone.value?.liveState ?? 0) === 1);
+  const canPlaySelectedZone = computed(() => {
+    const zone = selectedZone.value;
+    if (!zone || zone.qualities.length === 0) {
+      return false;
+    }
+
+    return zone.liveState === 1 || inferredLiveZoneIdSet.value.has(normalizeZoneId(zone.zoneId));
+  });
   const effectiveStreamUrl = computed(() => (canPlaySelectedZone.value ? streamUrl.value : null));
   const effectiveStreamErrorMessage = computed(() => {
     if (!canPlaySelectedZone.value && selectedZone.value) {

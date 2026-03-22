@@ -23,28 +23,32 @@ export const endpoints = {
   schedule: `${API_BASE}/schedule.json`,
 };
 
+async function fetchLiveJsonEndpoint<T>(rawUrl: string): Promise<T> {
+  return fetchJson<T>(buildLiveJsonUrl(rawUrl));
+}
+
 export async function fetchLiveGameInfo() {
-  return fetchJson<LiveGameInfo>(buildLiveJsonUrl(endpoints.liveGameInfo));
+  return fetchLiveJsonEndpoint<LiveGameInfo>(endpoints.liveGameInfo);
 }
 
 export async function fetchCurrentAndNextMatches() {
-  return fetchJson<CurrentAndNextMatches>(buildLiveJsonUrl(endpoints.currentAndNextMatches));
+  return fetchLiveJsonEndpoint<CurrentAndNextMatches>(endpoints.currentAndNextMatches);
 }
 
 export async function fetchGroupsOrder() {
-  return fetchJson<GroupsOrder>(buildLiveJsonUrl(endpoints.groupsOrder));
+  return fetchLiveJsonEndpoint<GroupsOrder>(endpoints.groupsOrder);
 }
 
 export async function fetchGroupRankInfo() {
-  return fetchJson<GroupRankInfo>(buildLiveJsonUrl(endpoints.groupRankInfo));
+  return fetchLiveJsonEndpoint<GroupRankInfo>(endpoints.groupRankInfo);
 }
 
 export async function fetchRobotData() {
-  return fetchJson<RobotData>(buildLiveJsonUrl(endpoints.robotData));
+  return fetchLiveJsonEndpoint<RobotData>(endpoints.robotData);
 }
 
 export async function fetchSchedule() {
-  return fetchJson<Schedule>(buildLiveJsonUrl(endpoints.schedule));
+  return fetchLiveJsonEndpoint<Schedule>(endpoints.schedule);
 }
 
 export interface RmPollingHandlers {
@@ -201,6 +205,21 @@ function toDateEpoch(value: string): number | null {
   return Math.floor(parsed / 1000);
 }
 
+function toStateValue(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) {
+      return numeric;
+    }
+  }
+
+  return 0;
+}
+
 function toQualityOption(item: LiveStreamCandidate, index: number): LiveQualityOption | null {
   const src = typeof item.src === 'string' ? item.src : '';
 
@@ -229,8 +248,8 @@ export function extractLiveZones(data: LiveGameInfo | null): LiveZoneOption[] {
     .map((zone: LiveZone, zoneIndex) => {
       const zoneId = String(zone.zoneId ?? zoneIndex);
       const zoneName = typeof zone.zoneName === 'string' ? zone.zoneName : `分区 ${zoneId}`;
-      const liveState = typeof zone.liveState === 'number' ? zone.liveState : 0;
-      const matchState = typeof zone.matchState === 'number' ? zone.matchState : 0;
+      const liveState = toStateValue(zone.liveState ?? (zone as Record<string, unknown>).live_state);
+      const matchState = toStateValue(zone.matchState ?? (zone as Record<string, unknown>).match_state);
       const startAt = toStartAt(zone.startAt ?? zone.start_time);
       const endAt = toStartAt(zone.endAt ?? zone.end_time);
       const zoneDates = Array.isArray(zone.zoneDate)

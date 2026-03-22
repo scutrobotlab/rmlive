@@ -23,6 +23,20 @@ function toStringValue(value: unknown, fallback = '-') {
   return str.length ? str : fallback;
 }
 
+function normalizeZoneId(value: unknown): string {
+  const raw = String(value ?? '').trim();
+  if (!raw) {
+    return '';
+  }
+
+  const numeric = Number(raw);
+  if (Number.isFinite(numeric)) {
+    return String(numeric);
+  }
+
+  return raw;
+}
+
 export function toBuckets(payload: CurrentAndNextMatches | null): Record<string, unknown>[] {
   if (!payload) {
     return [];
@@ -53,7 +67,7 @@ export function resolvePayloadByZone(
     return null;
   }
 
-  const normalizedId = String(selectedZoneId ?? '').trim();
+  const normalizedId = normalizeZoneId(selectedZoneId);
   const normalizedName = String(selectedZoneName ?? '').trim();
 
   function extractZone(item: Record<string, unknown>): Record<string, unknown> | undefined {
@@ -79,7 +93,7 @@ export function resolvePayloadByZone(
     const record = item as Record<string, unknown>;
     const zone = extractZone(record);
     const zoneIdCandidates = [zone?.id, zone?.zoneId, (item as Record<string, unknown>).zoneId];
-    return zoneIdCandidates.some((candidate) => String(candidate ?? '').trim() === normalizedId);
+    return zoneIdCandidates.some((candidate) => normalizeZoneId(candidate) === normalizedId);
   });
 
   if (matchedById) {
