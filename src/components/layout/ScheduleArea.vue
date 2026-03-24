@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import Skeleton from 'primevue/skeleton';
 import { defineAsyncComponent } from 'vue';
-import type { Schedule } from '../../types/api';
+import type { LiveGameInfo, Schedule } from '../../types/api';
 
 interface Props {
   isMobile: boolean;
   enabled: boolean;
   payload: Schedule | null;
+  liveGameInfo: LiveGameInfo | null;
   selectedZoneId: string | null;
   teamGroupMap?: Record<string, { group: string; rank: string }>;
 }
@@ -31,6 +32,7 @@ function onTeamSelect(teamName: string) {
       <SchedulePanel
         v-if="!isMobile"
         :payload="payload"
+        :live-game-info="liveGameInfo"
         :selected-zone-id="selectedZoneId"
         :team-group-map="teamGroupMap"
         @team-select="onTeamSelect"
@@ -38,6 +40,7 @@ function onTeamSelect(teamName: string) {
       <MobileSchedulePanel
         v-else
         :payload="payload"
+        :live-game-info="liveGameInfo"
         :selected-zone-id="selectedZoneId"
         :team-group-map="teamGroupMap"
         @team-select="onTeamSelect"

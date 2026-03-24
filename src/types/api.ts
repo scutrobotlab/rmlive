@@ -19,12 +19,25 @@ export interface LiveStreamCandidate extends AnyRecord {
   src?: string;
 }
 
+export interface ReplayVideoContent extends AnyRecord {
+  title1?: string;
+  main_source_url?: string;
+  main_remote_url?: string;
+  main_img_url?: string;
+  match_id?: string | number;
+}
+
+export interface ReplayVideoEntry extends AnyRecord {
+  content?: ReplayVideoContent;
+}
+
 export interface LiveZone extends AnyRecord {
   zoneId?: string | number;
   zoneName?: string;
   liveState?: number;
   matchState?: number;
   zoneLiveString?: LiveStreamCandidate[];
+  videos?: ReplayVideoEntry[];
 }
 
 export interface LiveGameInfo extends AnyRecord {

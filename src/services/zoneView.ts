@@ -108,6 +108,7 @@ export function toZoneOptionItem(zone: LiveZoneLike, nowEpoch: number): ZoneOpti
     };
   }
 
+  // ended
   return {
     label: zone.zoneName,
     value: zone.zoneId,
@@ -116,6 +117,6 @@ export function toZoneOptionItem(zone: LiveZoneLike, nowEpoch: number): ZoneOpti
     liveLogo: false,
     title: zone.zoneName,
     dateText: formatDate(zone.endAt),
-    disabled: true,
+    disabled: false,
   };
 }

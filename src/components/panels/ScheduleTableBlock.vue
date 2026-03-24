@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import Button from 'primevue/button';
 import Column from 'primevue/column';
 import DataTable from 'primevue/datatable';
 import Tag from 'primevue/tag';
+import { ref } from 'vue';
 import { toStatusSeverity, type ScheduleRowItem } from '../../services/scheduleView';
 import TeamInfoCard from '../common/TeamInfoCard.vue';
+import ReplayVideoDialog from '../dialogs/ReplayVideoDialog.vue';
 
 interface Props {
   rows: ScheduleRowItem[];
@@ -35,6 +38,26 @@ function showSlug(slug: string): boolean {
 
 function resolveStageLabel(stage: string, slug: string): string {
   return showSlug(slug) ? String(slug).trim() : stage;
+}
+
+const replayVisible = ref(false);
+const replayTitle = ref('');
+const replayUrl = ref('');
+const replayCoverUrl = ref('');
+
+function openReplay(data: ScheduleRowItem) {
+  if (!data.replayVideo) {
+    return;
+  }
+
+  replayTitle.value = data.replayVideo.title;
+  replayUrl.value = data.replayVideo.url;
+  replayCoverUrl.value = data.replayVideo.coverUrl;
+  replayVisible.value = true;
+}
+
+function onReplayVisibleChange(visible: boolean) {
+  replayVisible.value = visible;
 }
 </script>
 
@@ -85,15 +108,31 @@ function resolveStageLabel(stage: string, slug: string): string {
         </template>
       </Column>
 
-      <Column field="score" header="比分" />
-      <Column field="gameScore" header="小局" />
-
-      <Column header="状态">
+      <Column header="比分">
         <template #body="{ data }">
-          <Tag :severity="toStatusSeverity(data.statusRaw)" :value="data.status" />
+          <div class="score-cell">
+            <Tag :severity="toStatusSeverity(data.statusRaw)" :value="data.gameScore" />
+            <Button
+              v-if="data.replayVideo"
+              icon="pi pi-play-circle"
+              rounded
+              text
+              severity="secondary"
+              aria-label="播放回放"
+              @click="openReplay(data)"
+            />
+          </div>
         </template>
       </Column>
     </DataTable>
+
+    <ReplayVideoDialog
+      v-model:visible="replayVisible"
+      :title="replayTitle"
+      :video-url="replayUrl"
+      :cover-url="replayCoverUrl"
+      @update:visible="onReplayVisibleChange"
+    />
   </div>
 </template>
 
@@ -111,6 +150,22 @@ function resolveStageLabel(stage: string, slug: string): string {
 .time-cell .pi {
   font-size: 0.72rem;
   opacity: 0.78;
+}
+
+.score-cell {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.score-cell :deep(.p-button) {
+  width: 1.7rem;
+  height: 1.7rem;
+}
+
+.score-cell :deep(.p-button .pi) {
+  font-size: 0.92rem;
 }
 
 :deep(.p-datatable .p-datatable-tbody > tr > td) {

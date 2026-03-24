@@ -1,4 +1,5 @@
 import vue from '@vitejs/plugin-vue';
+import path from 'node:path';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { defineConfig } from 'vite';
 
@@ -30,6 +31,12 @@ export default defineConfig(({ mode }) => {
             return path;
           },
         },
+      },
+    },
+
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, './src'),
       },
     },
     build: {

@@ -1,6 +1,9 @@
+import { Danmu } from 'artplayer-plugin-danmuku';
 import { defineStore } from 'pinia';
+import { useToast } from 'primevue';
 import { ref } from 'vue';
 import type { DanmuMessage } from '../types/api';
+import { useUserInfoStore } from './userInfo';
 
 interface ParsedNameMeta {
   year: string;
@@ -139,6 +142,20 @@ export const useDanmuStore = defineStore('danmu', () => {
     };
   }
 
+  const userInfo = useUserInfoStore();
+
+  const sendDanmu = async (d: Danmu): Promise<boolean> => {
+    if (!userInfo.userInfo) {
+      const toast = useToast();
+      toast.add({ severity: 'warn', summary: '请先登录', detail: '登录后才能发送弹幕' });
+      return false;
+    }
+
+    // TODO: send danmu via API
+
+    return true;
+  };
+
   return {
     messages,
     clearMessages,
@@ -149,5 +166,6 @@ export const useDanmuStore = defineStore('danmu', () => {
     resolveDisplayNickname,
     resolveTooltipText,
     resolveTooltipMeta,
+    sendDanmu,
   };
 });

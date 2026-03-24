@@ -10,6 +10,7 @@ import { resolveZoneChatRoomId } from './services/chatRoomView';
 import { bindDanmuRoomReset } from './services/danmuLifecycle';
 import { scheduleDeferredMount } from './services/deferredMount';
 import { toPlayerQualityOptions } from './services/rmStreamView';
+import { getScheduleEventTitle } from './services/scheduleView';
 import { useDanmuStore } from './stores/danmu';
 import { useRmDataStore } from './stores/rmData';
 import { useUiStore } from './stores/ui';
@@ -44,6 +45,7 @@ const dataDialogVisible = ref(false);
 const dataDialogTeam = ref<string | null>(null);
 
 const playerQualityOptions = computed(() => toPlayerQualityOptions(selectedZone.value));
+const scheduleEventTitle = computed(() => getScheduleEventTitle(schedule.value));
 
 const selectedZoneChatRoomId = computed(() =>
   resolveZoneChatRoomId(liveGameInfo.value, selectedZoneId.value, selectedZoneName.value),
@@ -96,6 +98,7 @@ onBeforeUnmount(() => {
     <TopToolbar
       :is-mobile="isMobile"
       :is-dark="isDark"
+      :schedule-event-title="scheduleEventTitle"
       :selected-zone-id="selectedZoneId"
       :zone-options="zoneOptions"
       @zone-change="onZoneChange"
@@ -132,6 +135,7 @@ onBeforeUnmount(() => {
       :is-mobile="isMobile"
       :enabled="enableSecondaryPanels"
       :payload="schedule"
+      :live-game-info="liveGameInfo"
       :selected-zone-id="selectedZoneId"
       :team-group-map="teamGroupMap"
       @team-select="onOpenTeamData"

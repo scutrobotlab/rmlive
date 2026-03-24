@@ -5,13 +5,14 @@ import TabList from 'primevue/tablist';
 import TabPanel from 'primevue/tabpanel';
 import TabPanels from 'primevue/tabpanels';
 import Tabs from 'primevue/tabs';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { getScheduleRows, isResultStatus } from '../../services/scheduleView';
-import type { Schedule } from '../../types/api';
+import type { LiveGameInfo, Schedule } from '../../types/api';
 import ScheduleCardList from './ScheduleCardList.vue';
 
 interface Props {
   payload: Schedule | null;
+  liveGameInfo: LiveGameInfo | null;
   selectedZoneId: string | null;
   teamGroupMap?: Record<string, { group: string; rank: string }>;
 }
@@ -21,7 +22,7 @@ const props = defineProps<Props>();
 const emit = defineEmits<{
   teamSelect: [teamName: string];
 }>();
-const rows = computed(() => getScheduleRows(props.payload, props.selectedZoneId));
+const rows = computed(() => getScheduleRows(props.payload, props.selectedZoneId, props.liveGameInfo));
 const tab = ref<'schedule' | 'result'>('schedule');
 const scheduleRows = computed(() =>
   rows.value
@@ -34,6 +35,21 @@ const resultRows = computed(() =>
     .filter((item) => isResultStatus(item.statusRaw))
     .slice()
     .sort((a, b) => b.startedAtTs - a.startedAtTs),
+);
+
+watch(
+  () => [scheduleRows.value.length, resultRows.value.length] as const,
+  ([scheduleCount, resultCount]) => {
+    if (tab.value === 'schedule' && scheduleCount === 0 && resultCount > 0) {
+      tab.value = 'result';
+      return;
+    }
+
+    if (tab.value === 'result' && resultCount === 0 && scheduleCount > 0) {
+      tab.value = 'schedule';
+    }
+  },
+  { immediate: true },
 );
 
 function onSelectTeam(teamName: string) {

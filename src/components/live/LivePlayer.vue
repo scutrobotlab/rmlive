@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import Artplayer from 'artplayer';
+import { useDanmuStore } from '@/stores/danmu';
+import { useDanmuFilterStore } from '@/stores/danmuFilter';
+import Artplayer, { Option } from 'artplayer';
+import artplayerPluginChromecast from 'artplayer-plugin-chromecast';
 import artplayerPluginDanmuku from 'artplayer-plugin-danmuku';
 import Hls from 'hls.js/dist/hls.light.mjs';
 import Button from 'primevue/button';
@@ -43,6 +46,9 @@ const danmuService = ref<DanmuService | null>(null);
 let currentRoomId: string | null = null;
 let roomSwitchToken = 0;
 let connectingService: DanmuService | null = null;
+
+const danmuFilterStore = useDanmuFilterStore();
+const danmuStore = useDanmuStore();
 
 async function destroyDanmu() {
   if (connectingService) {
@@ -223,7 +229,7 @@ function mountPlayer(url: string) {
       default: item.value === props.selectedQualityRes,
     }));
 
-  const playerOptions: any = {
+  const playerOptions: Option = {
     container: container.value,
     url,
     plugins: [
@@ -236,17 +242,32 @@ function mountPlayer(url: string) {
         antiOverlap: true,
         synchronousPlayback: true,
         emitter: false,
+        filter: danmuFilterStore.filter,
+        beforeEmit: danmuStore.sendDanmu,
       }),
+      artplayerPluginChromecast({}),
     ],
     volume: 0.7,
     muted: true,
     autoplay: true,
-    setting: false,
+    setting: true,
+    flip: true,
+    playbackRate: true,
+    aspectRatio: true,
+    subtitleOffset: true,
     hotkey: true,
     pip: true,
     fullscreen: true,
     fullscreenWeb: true,
     quality: qualityItems.length > 1 ? qualityItems : undefined,
+    airplay: true,
+    gesture: true,
+    screenshot: true,
+    mutex: true,
+    backdrop: true,
+    miniProgressBar: true,
+    playsInline: false,
+    lock: true,
     customType: {
       m3u8(video: HTMLVideoElement, m3u8Url: string) {
         if (Hls.isSupported()) {

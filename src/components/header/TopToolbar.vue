@@ -9,6 +9,7 @@ import type { ZoneOptionItem } from '../../services/zoneView';
 interface Props {
   isMobile: boolean;
   isDark: boolean;
+  scheduleEventTitle?: string | null;
   selectedZoneId: string | null;
   zoneOptions: ZoneOptionItem[];
 }
@@ -46,7 +47,10 @@ function onZoneChange(value: string) {
       <div class="toolbar-brand">
         <img :src="brandLogoUrl" alt="RMLive logo" class="brand-logo" />
         <div class="toolbar-brand-meta">
-          <h1>RMLive - Better 直播间</h1>
+          <h1>
+            <span>RMLive - Better 直播间</span>
+            <small v-if="scheduleEventTitle" class="event-title">{{ scheduleEventTitle }}</small>
+          </h1>
           <p>更清晰的赛事视图，更顺滑的直播体验</p>
         </div>
       </div>
@@ -150,6 +154,15 @@ function onZoneChange(value: string) {
   margin: 0;
   font-size: 1.02rem;
   line-height: 1.15;
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+}
+
+.event-title {
+  font-size: 0.72rem;
+  font-weight: 500;
+  opacity: 0.78;
 }
 
 .toolbar-brand-meta p {

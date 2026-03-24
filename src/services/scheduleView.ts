@@ -1,5 +1,11 @@
-import type { Schedule } from '../types/api';
+import type { LiveGameInfo, LiveZone, ReplayVideoEntry, Schedule } from '../types/api';
 import { formatFriendlyDateTime } from './timeFormat';
+
+export interface ReplayVideoInfo {
+  title: string;
+  url: string;
+  coverUrl: string;
+}
 
 export interface ScheduleRowItem {
   id: string;
@@ -24,6 +30,7 @@ export interface ScheduleRowItem {
   gameScore: string;
   statusRaw: string;
   status: string;
+  replayVideo: ReplayVideoInfo | null;
 }
 
 export function toStatusLabel(status: string): string {
@@ -79,11 +86,93 @@ function getZones(data: Schedule | null): Record<string, unknown>[] {
   return [];
 }
 
-export function getScheduleRows(data: Schedule | null, selectedZoneId: string | null): ScheduleRowItem[] {
+export function getScheduleEventTitle(data: Schedule | null): string {
+  if (!data || typeof data !== 'object') {
+    return '';
+  }
+
+  const root = data as Record<string, unknown>;
+  const graphTitle = String(
+    ((root.data as Record<string, unknown> | undefined)?.event as Record<string, unknown> | undefined)?.title ?? '',
+  ).trim();
+  if (graphTitle) {
+    return graphTitle;
+  }
+
+  const currentEventTitle = String((root.current_event as Record<string, unknown> | undefined)?.title ?? '').trim();
+  if (currentEventTitle) {
+    return currentEventTitle;
+  }
+
+  return '';
+}
+
+function getLiveZones(data: LiveGameInfo | null): LiveZone[] {
+  if (!data || !Array.isArray(data.eventData)) {
+    return [];
+  }
+
+  return data.eventData;
+}
+
+function toVideoInfo(entry: ReplayVideoEntry): { matchId: string; replay: ReplayVideoInfo } | null {
+  if (!entry || typeof entry !== 'object') {
+    return null;
+  }
+
+  const content = (entry.content ?? {}) as Record<string, unknown>;
+  const matchId = String(content.match_id ?? '').trim();
+  const url = String(content.main_source_url ?? content.main_remote_url ?? '').trim();
+  const title = String(content.title1 ?? '').trim();
+  const coverUrl = String(content.main_img_url ?? '').trim();
+
+  if (!matchId || !url) {
+    return null;
+  }
+
+  return {
+    matchId,
+    replay: {
+      title: title || '比赛回放',
+      url,
+      coverUrl,
+    },
+  };
+}
+
+function buildReplayMap(data: LiveGameInfo | null, selectedZoneId: string | null): Map<string, ReplayVideoInfo> {
+  const zones = getLiveZones(data);
+  if (!zones.length) {
+    return new Map();
+  }
+
+  const zone = zones.find((item) => String(item.zoneId ?? '') === String(selectedZoneId ?? '')) ?? zones[0];
+  const videos = Array.isArray(zone?.videos) ? zone.videos : [];
+
+  return videos.reduce((map, video) => {
+    const info = toVideoInfo(video);
+    if (!info) {
+      return map;
+    }
+
+    if (!map.has(info.matchId)) {
+      map.set(info.matchId, info.replay);
+    }
+    return map;
+  }, new Map<string, ReplayVideoInfo>());
+}
+
+export function getScheduleRows(
+  data: Schedule | null,
+  selectedZoneId: string | null,
+  liveGameInfo?: LiveGameInfo | null,
+): ScheduleRowItem[] {
   const zones = getZones(data);
   if (!zones.length) {
     return [];
   }
+
+  const replayMap = buildReplayMap(liveGameInfo ?? null, selectedZoneId);
 
   const zone = zones.find((item) => {
     if (!item || typeof item !== 'object') {
@@ -127,9 +216,10 @@ export function getScheduleRows(data: Schedule | null, selectedZoneId: string | 
       const blueSideWinGameCount = Number(match.blueSideWinGameCount ?? 0);
       const redSideWinGameCount = Number(match.redSideWinGameCount ?? 0);
       const status = String(match.status ?? '-');
+      const matchId = String(match.id ?? '-');
 
       return {
-        id: String(match.id ?? '-'),
+        id: matchId,
         slug: String(match.slug ?? '-'),
         orderNumber: String(match.orderNumber ?? '-'),
         date: dateObj ? dateObj.toLocaleDateString('zh-CN') : '-',
@@ -151,6 +241,7 @@ export function getScheduleRows(data: Schedule | null, selectedZoneId: string | 
         gameScore: `${redSideWinGameCount} : ${blueSideWinGameCount}`,
         statusRaw: status,
         status: toStatusLabel(status),
+        replayVideo: replayMap.get(matchId) ?? null,
       };
     })
     .filter((item): item is ScheduleRowItem => item !== null);
