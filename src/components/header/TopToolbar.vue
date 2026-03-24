@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import Button from 'primevue/button';
 import Select from 'primevue/select';
 import SelectButton from 'primevue/selectbutton';
 import Toolbar from 'primevue/toolbar';
 import { computed } from 'vue';
 import type { ZoneOptionItem } from '../../services/zoneView';
 import ThemeLogoButton from './ThemeLogoButton.vue';
+import UserProfileAvatar from './UserProfileAvatar.vue';
 
 interface Props {
   isMobile: boolean;
@@ -37,6 +39,10 @@ function onZoneChange(value: string) {
 
 function onThemeChange(value: boolean) {
   emit('themeChange', value);
+}
+
+function goToGithub() {
+  window.open('https://github.com/scutrobotlab/rmlive', '_blank');
 }
 </script>
 
@@ -118,6 +124,16 @@ function onThemeChange(value: boolean) {
           </template>
         </Select>
 
+        <UserProfileAvatar />
+        <Button
+          class="github-button"
+          icon="pi pi-github"
+          rounded
+          text
+          severity="contrast"
+          aria-label="访问 GitHub 仓库"
+          @click="goToGithub"
+        />
         <ThemeLogoButton :is-dark="isDark" @change="onThemeChange" />
       </div>
     </template>
@@ -244,5 +260,17 @@ function onThemeChange(value: boolean) {
   .zone-select-button-wrap {
     min-width: 0;
   }
+}
+
+.github-button {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--p-surface-500) 45%, transparent);
+  background: color-mix(in srgb, var(--p-surface-200) 78%, transparent);
+}
+
+.github-button :deep(.pi) {
+  font-size: 0.88rem;
 }
 </style>

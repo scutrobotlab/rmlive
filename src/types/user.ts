@@ -7,4 +7,5 @@ export interface UserInfo {
   school: string;
   grade: string;
   role: string;
+  badge: string[];
 }

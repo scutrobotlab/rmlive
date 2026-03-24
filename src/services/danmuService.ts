@@ -1,3 +1,5 @@
+import { useLocalStorage } from '@vueuse/core';
+import { v4 as uuid } from 'uuid';
 import type { DanmuMessage } from '../types/api';
 import { fetchJson } from './http';
 import { buildLiveJsonUrl } from './urlProxy';
@@ -5,7 +7,6 @@ import { buildLiveJsonUrl } from './urlProxy';
 const APP_ID = import.meta.env.VITE_CHATROOM_APP_ID as string;
 const APP_KEY = import.meta.env.VITE_CHATROOM_APP_KEY as string;
 const CHATROOM_HISTORY_URL = 'https://rm-static.djicdn.com/live_json/chatroom.json';
-const SHARED_IM_CLIENT_ID = `rm-live-${Math.random().toString(36).slice(2, 10)}`;
 const GLOBAL_REALTIME_KEY = '__rmLiveLeancloudRealtime';
 const GLOBAL_IMCLIENT_KEY = '__rmLiveLeancloudImClient';
 
@@ -58,9 +59,11 @@ async function getSharedImClient(): Promise<any> {
   }
 
   if (!sharedImClientInitPromise) {
+    const clientId = useLocalStorage('im-client-id', uuid(), { serializer: { read: String, write: String } });
+
     sharedImClientInitPromise = (async () => {
       const realtime = await getSharedRealtime();
-      const imClient = await realtime.createIMClient(SHARED_IM_CLIENT_ID);
+      const imClient = await realtime.createIMClient(clientId.value);
       sharedImClient = imClient;
       runtimeGlobal[GLOBAL_IMCLIENT_KEY] = imClient;
       return imClient;
