@@ -27,7 +27,6 @@ export interface ScheduleRowItem {
     logo: string;
   };
   score: string;
-  gameScore: string;
   statusRaw: string;
   status: string;
   replayVideo: ReplayVideoInfo | null;
@@ -211,8 +210,6 @@ export function getScheduleRows(
       const blueTeamName = String(blueTeam?.name ?? match.winnerPlaceholdName ?? '-');
       const redTeamName = String(redTeam?.name ?? match.loserPlaceholdName ?? '-');
 
-      const blueSideScore = Number(match.blueSideScore ?? 0);
-      const redSideScore = Number(match.redSideScore ?? 0);
       const blueSideWinGameCount = Number(match.blueSideWinGameCount ?? 0);
       const redSideWinGameCount = Number(match.redSideWinGameCount ?? 0);
       const status = String(match.status ?? '-');
@@ -237,8 +234,7 @@ export function getScheduleRows(
           collegeName: String(blueTeam?.collegeName ?? '-'),
           logo: String(blueTeam?.collegeLogo ?? ''),
         },
-        score: `${redSideScore} : ${blueSideScore}`,
-        gameScore: `${redSideWinGameCount} : ${blueSideWinGameCount}`,
+        score: `${redSideWinGameCount} : ${blueSideWinGameCount}`,
         statusRaw: status,
         status: toStatusLabel(status),
         replayVideo: replayMap.get(matchId) ?? null,

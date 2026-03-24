@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import Select from 'primevue/select';
 import SelectButton from 'primevue/selectbutton';
-import ToggleButton from 'primevue/togglebutton';
 import Toolbar from 'primevue/toolbar';
 import { computed } from 'vue';
 import type { ZoneOptionItem } from '../../services/zoneView';
+import ThemeLogoButton from './ThemeLogoButton.vue';
 
 interface Props {
   isMobile: boolean;
@@ -31,13 +31,12 @@ const currentZoneOption = computed(() => {
   return props.zoneOptions.find((item) => String(item.value) === String(props.selectedZoneId ?? '')) ?? null;
 });
 
-const themeChecked = computed({
-  get: () => props.isDark,
-  set: (value: boolean) => emit('themeChange', value),
-});
-
 function onZoneChange(value: string) {
   emit('zoneChange', value);
+}
+
+function onThemeChange(value: boolean) {
+  emit('themeChange', value);
 }
 </script>
 
@@ -119,15 +118,7 @@ function onZoneChange(value: string) {
           </template>
         </Select>
 
-        <ToggleButton
-          v-model="themeChecked"
-          on-icon="pi pi-moon"
-          off-icon="pi pi-sun"
-          on-label=""
-          off-label=""
-          size="small"
-          aria-label="主题切换"
-        />
+        <ThemeLogoButton :is-dark="isDark" @change="onThemeChange" />
       </div>
     </template>
   </Toolbar>

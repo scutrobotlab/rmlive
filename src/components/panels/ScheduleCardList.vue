@@ -72,8 +72,7 @@ function resolveStageLabel(stage: string, slug: string): string {
       </div>
 
       <div v-if="showResultScore" class="result-score">
-        <Tag severity="contrast" icon="pi pi-chart-line" :value="`比分 ${item.score}`" />
-        <Tag severity="secondary" icon="pi pi-chart-bar" :value="`小局 ${item.gameScore}`" />
+        <Tag severity="secondary" icon="pi pi-chart-bar" :value="`比分 ${item.score}`" />
       </div>
     </article>
   </div>

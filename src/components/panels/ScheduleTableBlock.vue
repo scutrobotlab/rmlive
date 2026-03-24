@@ -111,7 +111,7 @@ function onReplayVisibleChange(visible: boolean) {
       <Column header="比分">
         <template #body="{ data }">
           <div class="score-cell">
-            <Tag :severity="toStatusSeverity(data.statusRaw)" :value="data.gameScore" />
+            <Tag :severity="toStatusSeverity(data.statusRaw)" :value="data.score" />
             <Button
               v-if="data.replayVideo"
               icon="pi pi-play-circle"

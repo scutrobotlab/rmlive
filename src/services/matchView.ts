@@ -11,7 +11,6 @@ export interface MatchView {
   blueTeam: TeamView;
   redTeam: TeamView;
   score: string;
-  gameScore: string;
   status: string;
   stage: string;
   slug: string;
@@ -145,8 +144,6 @@ export function toMatchView(data: unknown): MatchView | null {
   const blueTeam = bluePlayer?.team as Record<string, unknown> | undefined;
   const redTeam = redPlayer?.team as Record<string, unknown> | undefined;
 
-  const blueSideScore = Number(asRecord.blueSideScore ?? 0);
-  const redSideScore = Number(asRecord.redSideScore ?? 0);
   const blueSideWinGameCount = Number(asRecord.blueSideWinGameCount ?? 0);
   const redSideWinGameCount = Number(asRecord.redSideWinGameCount ?? 0);
 
@@ -161,8 +158,7 @@ export function toMatchView(data: unknown): MatchView | null {
       collegeName: toStringValue(redTeam?.collegeName),
       logo: toStringValue(redTeam?.collegeLogo, ''),
     },
-    score: `${redSideScore} : ${blueSideScore}`,
-    gameScore: `${redSideWinGameCount} : ${blueSideWinGameCount}`,
+    score: `${redSideWinGameCount} : ${blueSideWinGameCount}`,
     status: toStringValue(asRecord.status),
     stage: toStringValue(asRecord.matchType),
     slug: toStringValue(asRecord.slug),
