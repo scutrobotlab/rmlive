@@ -1,13 +1,64 @@
 import { userInfoRequestEvent, userInfoResponseEvent } from './constants/userInfoEvents';
 import { UserInfo } from './types/user';
 
+const pageContent = document.querySelector<HTMLElement>('.page-content');
+const mountPoint = pageContent ?? document.body;
+
+if (pageContent) {
+  // Keep top navigation, but replace page-content area with iframe.
+  while (pageContent.firstChild) {
+    pageContent.removeChild(pageContent.firstChild);
+  }
+
+  const topOffset = Math.max(0, Math.round(pageContent.getBoundingClientRect().top));
+  pageContent.style.margin = '0';
+  pageContent.style.padding = '0';
+  pageContent.style.position = 'relative';
+  pageContent.style.overflow = 'hidden';
+  pageContent.style.height = `calc(100vh - ${topOffset}px)`;
+} else {
+  // Fallback for pages without .page-content.
+  document.documentElement.style.margin = '0';
+  document.documentElement.style.height = '100%';
+  document.documentElement.style.overflow = 'hidden';
+  document.body.style.margin = '0';
+  document.body.style.height = '100%';
+  document.body.style.overflow = 'hidden';
+}
+
+const footer = document.querySelector<HTMLElement>('.footer');
+if (footer) {
+  footer.style.display = 'none';
+}
+
+// Avoid creating duplicate iframes if the script runs more than once.
+const existingIframe = document.getElementById('rm-live-iframe');
+if (existingIframe) {
+  existingIframe.remove();
+}
+
 const iframe = document.createElement('iframe') as HTMLIFrameElement;
-iframe.src = 'https://rmlive.scutbot.cn';
+// iframe.src = 'https://rmlive.scutbot.cn';
+iframe.src = `http://localhost:5173`;
 iframe.id = 'rm-live-iframe';
+iframe.style.width = '100%';
+iframe.style.height = '100%';
+iframe.style.border = '0';
+iframe.style.display = 'block';
+
+if (pageContent) {
+  iframe.style.position = 'absolute';
+  iframe.style.inset = '0';
+  iframe.style.zIndex = '1';
+} else {
+  iframe.style.position = 'fixed';
+  iframe.style.inset = '0';
+  iframe.style.zIndex = '2147483647';
+}
 const iframeOrigin = new URL(iframe.src, window.location.href).origin;
 
-const mountPoint = document.currentScript?.parentElement || document.body;
 mountPoint.appendChild(iframe);
+console.log('mounted rm-live iframe to', mountPoint);
 
 interface CookieUserInfo {
   nickname: string;

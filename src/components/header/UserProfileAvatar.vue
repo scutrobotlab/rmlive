@@ -5,36 +5,45 @@ import { useUserInfoStore } from '../../stores/userInfo';
 
 const userInfoStore = useUserInfoStore();
 
-const userInfo = computed(() => userInfoStore.userInfo);
-
 const avatarLabel = computed(() => {
-  const nickname = userInfo.value?.nickname ?? '';
+  const nickname = userInfoStore.userInfo?.nickname ?? '';
   return nickname.charAt(0).toUpperCase();
 });
 
-const avatarTitle = computed(() => userInfo.value?.nickname || '用户主页');
+const avatarTitle = computed(() => userInfoStore.userInfo?.nickname || '用户主页');
 
 function goToUserProfile() {
-  if (!userInfo.value?.id) {
+  if (!userInfoStore.userInfo?.id) {
     return;
   }
 
-  window.open(`https://bbs.robomaster.com/user/${userInfo.value.id}`, '_blank');
+  window.open(`https://bbs.robomaster.com/user/${userInfoStore.userInfo.id}`, '_blank');
 }
 </script>
 
 <template>
-  <Avatar
-    v-if="userInfo"
-    class="user-avatar"
-    :image="userInfo.avatar"
-    :label="avatarLabel"
-    :aria-label="`访问 ${avatarTitle}`"
-    :title="avatarTitle"
-    shape="circle"
-    size="small"
-    @click="goToUserProfile"
-  />
+  <div v-if="userInfoStore.userInfo">
+    <Avatar
+      v-if="userInfoStore.userInfo.avatar"
+      class="user-avatar"
+      :image="userInfoStore.userInfo.avatar"
+      :aria-label="`访问 ${avatarTitle}`"
+      :title="avatarTitle"
+      shape="circle"
+      size="small"
+      @click="goToUserProfile"
+    />
+    <Avatar
+      v-else
+      class="user-avatar"
+      :label="avatarLabel"
+      :aria-label="`访问 ${avatarTitle}`"
+      :title="avatarTitle"
+      shape="circle"
+      size="small"
+      @click="goToUserProfile"
+    />
+  </div>
 </template>
 
 <style scoped>
