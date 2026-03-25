@@ -131,7 +131,7 @@ onBeforeUnmount(() => {
     :visible="visible"
     modal
     :header="title"
-    :style="{ width: 'min(1080px, 96vw)' }"
+    :style="{ width: 'min(1080px, calc(100vw - 1rem))' }"
     @show="onDialogShow"
     @update:visible="onVisibleChange"
   >
@@ -173,5 +173,19 @@ onBeforeUnmount(() => {
 :deep(.art-video-player .art-player-app) {
   width: 100% !important;
   height: 100% !important;
+}
+
+:deep(.p-dialog) {
+  max-width: calc(100vw - 1rem);
+}
+
+:deep(.p-dialog-content) {
+  overflow-x: hidden;
+}
+
+@media (max-width: 768px) {
+  .replay-player {
+    min-height: 180px;
+  }
 }
 </style>

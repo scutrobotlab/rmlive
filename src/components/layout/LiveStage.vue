@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Panel from 'primevue/panel';
 import Splitter from 'primevue/splitter';
 import SplitterPanel from 'primevue/splitterpanel';
 import { defineAsyncComponent } from 'vue';
@@ -73,6 +74,12 @@ function onDanmu(msg: DanmuMessage) {
         @retry="onRetry"
         @danmu="onDanmu"
       />
+
+      <Panel header="弹幕列表" toggleable collapsed class="mobile-danmu-panel">
+        <div class="mobile-danmu-wrap">
+          <DanmuPanel />
+        </div>
+      </Panel>
     </div>
   </section>
 </template>
@@ -89,6 +96,15 @@ function onDanmu(msg: DanmuMessage) {
   min-width: 0;
 }
 
+.mobile-danmu-panel {
+  margin-top: 0.75rem;
+}
+
+.mobile-danmu-wrap {
+  height: 16rem;
+  min-height: 12rem;
+}
+
 .danmu-panel-wrap {
   display: flex;
   flex-direction: column;
@@ -98,6 +114,10 @@ function onDanmu(msg: DanmuMessage) {
 @media (max-width: 1024px) {
   .danmu-panel-wrap {
     display: none;
+  }
+
+  .mobile-danmu-wrap {
+    height: 13rem;
   }
 }
 </style>

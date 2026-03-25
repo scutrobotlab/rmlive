@@ -64,6 +64,7 @@ const filterSummary = computed(() => {
 
   return `关键词 ${danmuFilterStore.rules.keywords.length} / 学校 ${danmuFilterStore.rules.schools.length} / 用户 ${danmuFilterStore.rules.users.length}`;
 });
+let filterControlButtonEl: HTMLButtonElement | null = null;
 
 async function sendDanmuByRealtime(d: Danmu): Promise<boolean> {
   const content = String(d?.text ?? '').trim();
@@ -122,6 +123,11 @@ async function destroyDanmu() {
 }
 
 function destroyPlayer() {
+  if (filterControlButtonEl?.parentElement) {
+    filterControlButtonEl.parentElement.removeChild(filterControlButtonEl);
+  }
+  filterControlButtonEl = null;
+
   if (player) {
     player.destroy(false);
     player = null;
@@ -129,6 +135,38 @@ function destroyPlayer() {
   danmukuPlugin = null;
   playerReady = false;
   pendingDanmuQueue.length = 0;
+}
+
+function updateFilterControlButton() {
+  if (!filterControlButtonEl) {
+    return;
+  }
+
+  filterControlButtonEl.className = `art-control-filter ${filterActive.value ? 'is-active' : ''}`;
+  filterControlButtonEl.textContent = activeFilterCount.value ? `过滤 ${activeFilterCount.value}` : '过滤';
+  filterControlButtonEl.title = filterSummary.value;
+}
+
+function mountFilterControlButton() {
+  if (!container.value) {
+    return;
+  }
+
+  const controlsRight = container.value.querySelector('.art-controls-right');
+  if (!controlsRight || filterControlButtonEl) {
+    return;
+  }
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'art-control-filter';
+  button.addEventListener('click', () => {
+    filterDialogVisible.value = true;
+  });
+
+  controlsRight.prepend(button);
+  filterControlButtonEl = button;
+  updateFilterControlButton();
 }
 
 function pushDanmuToPlayer(msg: DanmuMessage) {
@@ -350,6 +388,7 @@ function mountPlayer(url: string) {
   player.on('ready', () => {
     playerReady = true;
     danmukuPlugin = (player as any).plugins?.artplayerPluginDanmuku;
+    mountFilterControlButton();
     flushPendingDanmu();
     try {
       player?.play();
@@ -382,6 +421,10 @@ watch(
   },
 );
 
+watch([activeFilterCount, filterActive, filterSummary], () => {
+  updateFilterControlButton();
+});
+
 exposeDanmuDebugApi();
 
 watch(
@@ -410,18 +453,6 @@ onBeforeUnmount(async () => {
 
 <template>
   <div class="player-shell">
-    <div class="player-actions">
-      <Button
-        v-tooltip="{ value: filterSummary, hideDelay: 200 }"
-        :label="activeFilterCount ? `过滤 ${activeFilterCount}` : '过滤'"
-        icon="pi pi-filter"
-        size="small"
-        :severity="filterActive ? 'warn' : 'secondary'"
-        :variant="filterActive ? undefined : 'outlined'"
-        @click="filterDialogVisible = true"
-      />
-    </div>
-
     <div v-if="loading" class="overlay center">
       <ProgressSpinner />
     </div>
@@ -452,13 +483,6 @@ onBeforeUnmount(async () => {
   min-height: 260px;
   aspect-ratio: 16 / 9;
   overflow: hidden;
-}
-
-.player-actions {
-  position: absolute;
-  right: 0.5rem;
-  top: 0.5rem;
-  z-index: 6;
 }
 
 .player-container {
@@ -499,6 +523,27 @@ onBeforeUnmount(async () => {
 :deep(.p-message) {
   max-width: calc(100% - 0.5rem);
   word-break: break-word;
+}
+
+:deep(.art-control-filter) {
+  height: 1.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  border-radius: 999px;
+  padding: 0 0.5rem;
+  margin-right: 0.35rem;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+:deep(.art-control-filter.is-active) {
+  border-color: rgba(255, 208, 75, 0.9);
+  color: #ffd04b;
+}
+
+:deep(.art-control-filter:hover) {
+  background: rgba(0, 0, 0, 0.58);
 }
 
 @media (max-width: 768px) {

@@ -83,32 +83,32 @@ function onSelectTeam(teamName: string) {
 
 <template>
   <Card>
-    <template #title>
-      <div class="card-title-row">
-        <span>赛程安排</span>
-        <Select
-          v-model="selectedSchool"
-          class="school-filter"
-          size="small"
-          :options="schoolOptions"
-          optionLabel="label"
-          optionValue="value"
-          filter
-          showClear
-          placeholder="筛选学校"
-        />
-      </div>
-    </template>
     <template #content>
       <Tabs v-model:value="tab">
-        <TabList>
-          <Tab value="schedule">
-            <span class="tab-title"><i class="pi pi-calendar" />赛程</span>
-          </Tab>
-          <Tab value="result">
-            <span class="tab-title"><i class="pi pi-trophy" />赛果</span>
-          </Tab>
-        </TabList>
+        <div class="tabs-toolbar">
+          <TabList>
+            <Tab value="schedule">
+              <span class="tab-title"><i class="pi pi-calendar" />赛程</span>
+            </Tab>
+            <Tab value="result">
+              <span class="tab-title"><i class="pi pi-trophy" />赛果</span>
+            </Tab>
+          </TabList>
+
+          <div class="toolbar-right">
+            <Select
+              v-model="selectedSchool"
+              class="school-filter"
+              size="small"
+              :options="schoolOptions"
+              optionLabel="label"
+              optionValue="value"
+              filter
+              showClear
+              placeholder="筛选学校"
+            />
+          </div>
+        </div>
 
         <TabPanels>
           <TabPanel value="schedule">
@@ -130,11 +130,15 @@ function onSelectTeam(teamName: string) {
 </template>
 
 <style scoped>
-.card-title-row {
+.tabs-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
+}
+
+.toolbar-right {
+  flex-shrink: 0;
 }
 
 .tab-title {
@@ -148,17 +152,16 @@ function onSelectTeam(teamName: string) {
 }
 
 .school-filter {
-  width: min(22rem, 100%);
+  width: min(10rem, 46vw);
 }
 
 @media (max-width: 768px) {
-  .card-title-row {
-    align-items: stretch;
-    flex-direction: column;
+  .tabs-toolbar {
+    gap: 0.5rem;
   }
 
   .school-filter {
-    width: 100%;
+    width: min(9.5rem, 48vw);
   }
 }
 </style>

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import Tag from 'primevue/tag';
-import { computed } from 'vue';
-import { buildImageUrl } from '../../services/urlProxy';
+import TeamLogo from './TeamLogo.vue';
 
 interface Props {
   teamName: string;
@@ -30,14 +29,12 @@ function onClick() {
   }
   emit('select', props.teamName);
 }
-
-const logoUrl = computed(() => buildImageUrl(props.logo));
 </script>
 
 <template>
   <article class="team-info" :class="{ compact, clickable }" @click="onClick">
     <div class="team-info-inner">
-      <img v-if="logoUrl" :src="logoUrl" :alt="teamName" />
+      <TeamLogo :logo="logo" :team-name="teamName" />
       <div class="meta">
         <div class="head-row">
           <h4>{{ teamName }}</h4>
@@ -67,11 +64,7 @@ const logoUrl = computed(() => buildImageUrl(props.logo));
   gap: 0.6rem;
 }
 
-.team-info img {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  object-fit: cover;
+:deep(.team-logo) {
   flex-shrink: 0;
 }
 
@@ -112,9 +105,9 @@ const logoUrl = computed(() => buildImageUrl(props.logo));
   font-size: 0.68rem;
 }
 
-.team-info.compact img {
-  width: 28px;
-  height: 28px;
+.team-info.compact :deep(.team-logo-wrapper) {
+  width: 28px !important;
+  height: 28px !important;
 }
 
 .team-info.compact {

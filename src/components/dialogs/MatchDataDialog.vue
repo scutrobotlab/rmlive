@@ -11,8 +11,8 @@ import {
   findDialogTeamGroupSection,
   sortDialogRankRows,
 } from '../../services/matchDataFormat';
-import { buildImageUrl } from '../../services/urlProxy';
 import type { GroupRankInfo, RobotData } from '../../types/api';
+import TeamLogo from '../common/TeamLogo.vue';
 import RobotDataPanel from '../panels/RobotDataPanel.vue';
 
 interface Props {
@@ -126,11 +126,12 @@ function onOpenTeamData(teamName: string) {
         >
           <div class="rank-main">
             <Tag :value="`#${row.rankDisplay}`" :severity="row.isCurrent ? 'info' : 'contrast'" />
-            <img
+            <TeamLogo
               v-if="row.collegeLogo"
+              :logo="row.collegeLogo"
+              :team-name="row.teamName"
+              custom-size="1.8rem"
               class="rank-team-logo"
-              :src="buildImageUrl(row.collegeLogo)"
-              :alt="`${row.teamName} logo`"
             />
             <div class="rank-meta">
               <strong>{{ row.teamName }}</strong>
@@ -200,10 +201,6 @@ function onOpenTeamData(teamName: string) {
 }
 
 .rank-team-logo {
-  width: 1.8rem;
-  height: 1.8rem;
-  border-radius: 999px;
-  object-fit: cover;
   flex-shrink: 0;
 }
 
