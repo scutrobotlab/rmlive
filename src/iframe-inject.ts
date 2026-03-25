@@ -4,6 +4,7 @@ import { UserInfo } from './types/user';
 const iframe = document.createElement('iframe') as HTMLIFrameElement;
 iframe.src = 'https://rmlive.scutbot.cn';
 iframe.id = 'rm-live-iframe';
+const iframeOrigin = new URL(iframe.src, window.location.href).origin;
 
 const mountPoint = document.currentScript?.parentElement || document.body;
 mountPoint.appendChild(iframe);
@@ -147,8 +148,21 @@ const getUserInfo = async (): Promise<UserInfo | null> => {
   }
 };
 
-window.addEventListener(userInfoRequestEvent, async () => {
+window.addEventListener('message', async (event: MessageEvent) => {
+  if (event.source !== iframe.contentWindow) {
+    return;
+  }
+
+  if (!event.data || typeof event.data !== 'object' || event.data.type !== userInfoRequestEvent) {
+    return;
+  }
+
   const userInfo = await getUserInfo();
-  const event = new CustomEvent(userInfoResponseEvent, { detail: userInfo });
-  iframe.contentWindow?.dispatchEvent(event);
+  iframe.contentWindow?.postMessage(
+    {
+      type: userInfoResponseEvent,
+      payload: userInfo,
+    },
+    iframeOrigin,
+  );
 });

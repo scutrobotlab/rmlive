@@ -33,18 +33,26 @@ export const useUserInfoStore = defineStore('userInfo', () => {
 
       // Wait for response with timeout
       const responseHandler = new Promise<UserInfo | null>((resolve) => {
-        const handler = (e: CustomEvent<UserInfo | null>) => {
-          window.removeEventListener(userInfoResponseEvent, handler as EventListener);
+        const handler = (e: MessageEvent) => {
+          if (e.source !== window.parent) {
+            return;
+          }
+
+          if (!e.data || typeof e.data !== 'object' || e.data.type !== userInfoResponseEvent) {
+            return;
+          }
+
+          window.removeEventListener('message', handler);
           if (timeoutId) {
             clearTimeout(timeoutId);
           }
-          resolve(e.detail);
+          resolve((e.data.payload ?? null) as UserInfo | null);
         };
-        window.addEventListener(userInfoResponseEvent, handler as EventListener);
+        window.addEventListener('message', handler);
       });
 
       // Send request to parent
-      window.parent.dispatchEvent(new CustomEvent(userInfoRequestEvent));
+      window.parent.postMessage({ type: userInfoRequestEvent }, '*');
 
       // Race between response and timeout
       const response = await Promise.race([responseHandler, timeoutPromise]);
