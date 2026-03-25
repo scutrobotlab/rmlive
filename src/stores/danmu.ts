@@ -1,7 +1,8 @@
 import { Danmu } from 'artplayer-plugin-danmuku';
 import { defineStore } from 'pinia';
 import { useToast } from 'primevue';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
+import { normalizeDanmuFilterToken } from '../services/danmuFilterRules';
 import type { DanmuMessage } from '../types/api';
 import { useUserInfoStore } from './userInfo';
 
@@ -50,6 +51,31 @@ function parseStructuredName(name: string): ParsedNameMeta | null {
 export const useDanmuStore = defineStore('danmu', () => {
   const messages = ref<DanmuMessage[]>([]);
   const maxMessages = 180;
+  const maxCandidateCount = 100;
+
+  function collectCandidates(
+    list: DanmuMessage[],
+    resolveValue: (message: DanmuMessage) => string,
+    maxCount = maxCandidateCount,
+  ): string[] {
+    const dedup = new Set<string>();
+    const candidates: string[] = [];
+
+    for (const message of list) {
+      const raw = resolveValue(message).trim();
+      const token = normalizeDanmuFilterToken(raw);
+      if (!token || dedup.has(token)) {
+        continue;
+      }
+      dedup.add(token);
+      candidates.push(raw);
+      if (candidates.length >= maxCount) {
+        break;
+      }
+    }
+
+    return candidates;
+  }
 
   function clearMessages() {
     messages.value = [];
@@ -97,6 +123,14 @@ export const useDanmuStore = defineStore('danmu', () => {
 
     return msg.username || '匿名';
   }
+
+  const schoolCandidates = computed(() => {
+    return collectCandidates(messages.value, (message) => resolveDisplaySchool(message));
+  });
+
+  const userCandidates = computed(() => {
+    return collectCandidates(messages.value, (message) => resolveDisplayNickname(message));
+  });
 
   function resolveTooltipText(msg: DanmuMessage): string {
     const meta = resolveTooltipMeta(msg);
@@ -158,6 +192,8 @@ export const useDanmuStore = defineStore('danmu', () => {
 
   return {
     messages,
+    schoolCandidates,
+    userCandidates,
     clearMessages,
     addMessage,
     resetMessages,

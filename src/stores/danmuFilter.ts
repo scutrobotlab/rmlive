@@ -44,6 +44,10 @@ export const useDanmuFilterStore = defineStore('danmuFilter', () => {
     syncRules({ ...normalizedRules.value, schools: [...normalizedRules.value.schools, school] });
   }
 
+  function setSchools(schools: string[]) {
+    syncRules({ ...normalizedRules.value, schools });
+  }
+
   function removeSchool(school: string) {
     const target = normalizeDanmuFilterToken(school);
     syncRules({
@@ -54,6 +58,10 @@ export const useDanmuFilterStore = defineStore('danmuFilter', () => {
 
   function addUser(user: string) {
     syncRules({ ...normalizedRules.value, users: [...normalizedRules.value.users, user] });
+  }
+
+  function setUsers(users: string[]) {
+    syncRules({ ...normalizedRules.value, users });
   }
 
   function removeUser(user: string) {
@@ -100,9 +108,11 @@ export const useDanmuFilterStore = defineStore('danmuFilter', () => {
     removeKeyword,
     clearKeywords,
     addSchool,
+    setSchools,
     removeSchool,
     clearSchools,
     addUser,
+    setUsers,
     removeUser,
     clearUsers,
     resetRules,

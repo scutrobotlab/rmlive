@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { MultiSelect } from 'primevue';
 import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
 import InputText from 'primevue/inputtext';
@@ -7,6 +8,7 @@ import Tag from 'primevue/tag';
 import ToggleSwitch from 'primevue/toggleswitch';
 import { computed, ref } from 'vue';
 import { normalizeDanmuFilterToken } from '../../services/danmuFilterRules';
+import { useDanmuStore } from '../../stores/danmu';
 import { useDanmuFilterStore } from '../../stores/danmuFilter';
 
 interface Props {
@@ -20,17 +22,53 @@ const emit = defineEmits<{
 }>();
 
 const danmuFilterStore = useDanmuFilterStore();
+const danmuStore = useDanmuStore();
 
 const keywordInput = ref('');
-const schoolInput = ref('');
-const userInput = ref('');
+const customSchoolInput = ref('');
+const customUserInput = ref('');
 
 const rules = computed(() => danmuFilterStore.rules);
 const activeRuleCount = computed(() => danmuFilterStore.activeRuleCount);
 
+function buildSelectedFirstOptions(selected: string[], candidates: string[]) {
+  const seen = new Set<string>();
+  const values: string[] = [];
+
+  selected.forEach((item) => {
+    const raw = String(item || '').trim();
+    const token = normalizeDanmuFilterToken(raw);
+    if (!token || seen.has(token)) {
+      return;
+    }
+    seen.add(token);
+    values.push(raw);
+  });
+
+  candidates.forEach((item) => {
+    const raw = String(item || '').trim();
+    const token = normalizeDanmuFilterToken(raw);
+    if (!token || seen.has(token)) {
+      return;
+    }
+    seen.add(token);
+    values.push(raw);
+  });
+
+  return values.map((value) => ({ label: value, value }));
+}
+
+const schoolOptions = computed(() => {
+  return buildSelectedFirstOptions(rules.value.schools, danmuStore.schoolCandidates);
+});
+
+const userOptions = computed(() => {
+  return buildSelectedFirstOptions(rules.value.users, danmuStore.userCandidates);
+});
+
 const keywordTrimmed = computed(() => keywordInput.value.trim());
-const schoolTrimmed = computed(() => schoolInput.value.trim());
-const userTrimmed = computed(() => userInput.value.trim());
+const customSchoolTrimmed = computed(() => customSchoolInput.value.trim());
+const customUserTrimmed = computed(() => customUserInput.value.trim());
 
 const keywordDuplicate = computed(() => {
   if (!keywordTrimmed.value) {
@@ -40,25 +78,25 @@ const keywordDuplicate = computed(() => {
   return rules.value.keywords.some((item) => normalizeDanmuFilterToken(item) === target);
 });
 
-const schoolDuplicate = computed(() => {
-  if (!schoolTrimmed.value) {
+const customSchoolDuplicate = computed(() => {
+  if (!customSchoolTrimmed.value) {
     return false;
   }
-  const target = normalizeDanmuFilterToken(schoolTrimmed.value);
+  const target = normalizeDanmuFilterToken(customSchoolTrimmed.value);
   return rules.value.schools.some((item) => normalizeDanmuFilterToken(item) === target);
 });
 
-const userDuplicate = computed(() => {
-  if (!userTrimmed.value) {
+const customUserDuplicate = computed(() => {
+  if (!customUserTrimmed.value) {
     return false;
   }
-  const target = normalizeDanmuFilterToken(userTrimmed.value);
+  const target = normalizeDanmuFilterToken(customUserTrimmed.value);
   return rules.value.users.some((item) => normalizeDanmuFilterToken(item) === target);
 });
 
 const canAddKeyword = computed(() => Boolean(keywordTrimmed.value) && !keywordDuplicate.value);
-const canAddSchool = computed(() => Boolean(schoolTrimmed.value) && !schoolDuplicate.value);
-const canAddUser = computed(() => Boolean(userTrimmed.value) && !userDuplicate.value);
+const canAddCustomSchool = computed(() => Boolean(customSchoolTrimmed.value) && !customSchoolDuplicate.value);
+const canAddCustomUser = computed(() => Boolean(customUserTrimmed.value) && !customUserDuplicate.value);
 
 function onDialogVisibleChange(value: boolean) {
   emit('update:visible', value);
@@ -72,20 +110,28 @@ function addKeyword() {
   keywordInput.value = '';
 }
 
-function addSchool() {
-  if (!canAddSchool.value) {
-    return;
-  }
-  danmuFilterStore.addSchool(schoolInput.value);
-  schoolInput.value = '';
+function updateSchools(values: string[]) {
+  danmuFilterStore.setSchools(values);
 }
 
-function addUser() {
-  if (!canAddUser.value) {
+function updateUsers(values: string[]) {
+  danmuFilterStore.setUsers(values);
+}
+
+function addCustomSchool() {
+  if (!canAddCustomSchool.value) {
     return;
   }
-  danmuFilterStore.addUser(userInput.value);
-  userInput.value = '';
+  updateSchools([...rules.value.schools, customSchoolTrimmed.value]);
+  customSchoolInput.value = '';
+}
+
+function addCustomUser() {
+  if (!canAddCustomUser.value) {
+    return;
+  }
+  updateUsers([...rules.value.users, customUserTrimmed.value]);
+  customUserInput.value = '';
 }
 
 function resetRules() {
@@ -159,17 +205,32 @@ function resetRules() {
           @click="danmuFilterStore.clearSchools"
         />
       </div>
+      <div class="selector-row">
+        <MultiSelect
+          :model-value="rules.schools"
+          :options="schoolOptions"
+          option-label="label"
+          option-value="value"
+          placeholder="选择已出现过的学校"
+          filter
+          display="chip"
+          size="small"
+          fluid
+          :max-selected-labels="3"
+          @update:model-value="updateSchools"
+        />
+      </div>
       <div class="input-row">
         <InputText
-          v-model="schoolInput"
+          v-model="customSchoolInput"
           fluid
           size="small"
-          placeholder="输入学校名后添加"
-          @keydown.enter.prevent="addSchool"
+          placeholder="或手动输入学校后添加"
+          @keydown.enter.prevent="addCustomSchool"
         />
-        <Button label="添加" size="small" :disabled="!canAddSchool" @click="addSchool" />
+        <Button label="添加" size="small" :disabled="!canAddCustomSchool" @click="addCustomSchool" />
       </div>
-      <small v-if="schoolDuplicate" class="hint">该学校已存在</small>
+      <small v-if="customSchoolDuplicate" class="hint">该学校已存在</small>
       <div class="tag-wrap">
         <span v-if="!rules.schools.length" class="empty">暂无学校规则</span>
         <Tag v-for="school in rules.schools" :key="`school-${school}`" severity="secondary" rounded>
@@ -193,17 +254,32 @@ function resetRules() {
           @click="danmuFilterStore.clearUsers"
         />
       </div>
+      <div class="selector-row">
+        <MultiSelect
+          :model-value="rules.users"
+          :options="userOptions"
+          option-label="label"
+          option-value="value"
+          placeholder="选择已出现过的用户"
+          filter
+          display="chip"
+          size="small"
+          fluid
+          :max-selected-labels="3"
+          @update:model-value="updateUsers"
+        />
+      </div>
       <div class="input-row">
         <InputText
-          v-model="userInput"
+          v-model="customUserInput"
           fluid
           size="small"
-          placeholder="输入用户名或昵称后添加"
-          @keydown.enter.prevent="addUser"
+          placeholder="或手动输入用户名/昵称后添加"
+          @keydown.enter.prevent="addCustomUser"
         />
-        <Button label="添加" size="small" :disabled="!canAddUser" @click="addUser" />
+        <Button label="添加" size="small" :disabled="!canAddCustomUser" @click="addCustomUser" />
       </div>
-      <small v-if="userDuplicate" class="hint">该用户已存在</small>
+      <small v-if="customUserDuplicate" class="hint">该用户已存在</small>
       <div class="tag-wrap">
         <span v-if="!rules.users.length" class="empty">暂无用户规则</span>
         <Tag v-for="user in rules.users" :key="`user-${user}`" severity="secondary" rounded>
@@ -262,6 +338,11 @@ function resetRules() {
 .input-row {
   display: flex;
   gap: 0.45rem;
+  align-items: center;
+}
+
+.selector-row {
+  display: flex;
   align-items: center;
 }
 
