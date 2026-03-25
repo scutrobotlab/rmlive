@@ -12,7 +12,7 @@ import { fetchJson } from './http';
 import { startPolling, type PollingTask } from './polling';
 import { buildLiveJsonUrl } from './urlProxy';
 
-const API_BASE = 'https://rm-static.djicdn.com/live_json';
+const API_BASE = '/live_json';
 
 export const endpoints = {
   liveGameInfo: `${API_BASE}/live_game_info.json`,

@@ -106,3 +106,10 @@ export interface DanmuMessage extends DanmuData {
   timestamp: number;
   source?: 'history' | 'realtime';
 }
+
+export interface DanmuFilterRules {
+  enabled: boolean;
+  keywords: string[];
+  schools: string[];
+  users: string[];
+}

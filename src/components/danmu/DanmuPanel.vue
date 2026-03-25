@@ -5,19 +5,28 @@ import Skeleton from 'primevue/skeleton';
 import VirtualScroller from 'primevue/virtualscroller';
 import { computed } from 'vue';
 import { useDanmuStore } from '../../stores/danmu';
+import { useDanmuFilterStore } from '../../stores/danmuFilter';
 import type { DanmuMessage } from '../../types/api';
 import DanmuItem from './DanmuItem.vue';
 
 const danmuStore = useDanmuStore();
+const danmuFilterStore = useDanmuFilterStore();
 const { messages } = storeToRefs(danmuStore);
 
-const virtualItems = computed<Array<DanmuMessage | null>>(() => messages.value);
+const virtualItems = computed<Array<DanmuMessage | null>>(() => {
+  return messages.value.filter((message) => danmuFilterStore.matchMessage(message));
+});
+
+const totalCount = computed(() => messages.value.length);
+const filteredCount = computed(() => virtualItems.value.length);
 </script>
 
 <template>
   <section class="danmu-panel">
+    <div v-if="totalCount" class="list-meta">显示 {{ filteredCount }} / {{ totalCount }}</div>
+
     <VirtualScroller
-      v-if="messages.length"
+      v-if="virtualItems.length"
       :items="virtualItems"
       :itemSize="56"
       :delay="60"
@@ -60,6 +69,12 @@ const virtualItems = computed<Array<DanmuMessage | null>>(() => messages.value);
   min-width: 0;
   overflow: auto;
   padding: 0.35rem;
+}
+
+.list-meta {
+  padding: 0.2rem 0.45rem;
+  font-size: 0.75rem;
+  opacity: 0.72;
 }
 
 .list-row {

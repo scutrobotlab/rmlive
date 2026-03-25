@@ -22,13 +22,18 @@ export default defineConfig(({ mode }) => {
     ].filter(Boolean),
     server: {
       proxy: {
+        '/live_json': {
+          target: 'https://rm-static.djicdn.com/',
+          changeOrigin: true,
+          rewrite: (path) => {
+            return path;
+          },
+        },
         '/rm-static': {
           target: 'https://rm-static.djicdn.com/',
           changeOrigin: true,
           rewrite: (path) => {
-            path = path.replace(/^\/rm-static\//, '');
-            path = path.split('%3F')[0];
-            return path;
+            return path.replace(/^\/rm-static\//, '');
           },
         },
       },

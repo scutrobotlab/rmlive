@@ -1,3 +1,4 @@
+import { useLocalStorage } from '@vueuse/core';
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 
@@ -6,13 +7,12 @@ const NEXT_PANEL_KEY = 'rm-next-panel-expanded';
 const MOBILE_BREAKPOINT = 768;
 
 export const useUiStore = defineStore('ui', () => {
-  const isDark = ref(true);
+  const isDark = useLocalStorage<boolean>(THEME_KEY, true);
   const isMobile = ref(false);
-  const nextMatchExpanded = ref(false);
+  const nextMatchExpanded = useLocalStorage<boolean>(NEXT_PANEL_KEY, false);
 
   function applyTheme() {
     document.documentElement.classList.toggle('app-dark', isDark.value);
-    localStorage.setItem(THEME_KEY, isDark.value ? 'dark' : 'light');
   }
 
   function setDarkMode(enabled: boolean) {
@@ -30,16 +30,10 @@ export const useUiStore = defineStore('ui', () => {
 
   function setNextMatchExpanded(expanded: boolean) {
     nextMatchExpanded.value = expanded;
-    localStorage.setItem(NEXT_PANEL_KEY, String(expanded));
   }
 
   function initializeUi() {
-    const storedTheme = localStorage.getItem(THEME_KEY);
-    isDark.value = storedTheme ? storedTheme === 'dark' : true;
     applyTheme();
-
-    const storedExpanded = localStorage.getItem(NEXT_PANEL_KEY);
-    nextMatchExpanded.value = storedExpanded ? storedExpanded === 'true' : false;
 
     updateViewport();
     window.addEventListener('resize', onResize);

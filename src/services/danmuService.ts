@@ -6,7 +6,7 @@ import { buildLiveJsonUrl } from './urlProxy';
 
 const APP_ID = import.meta.env.VITE_CHATROOM_APP_ID as string;
 const APP_KEY = import.meta.env.VITE_CHATROOM_APP_KEY as string;
-const CHATROOM_HISTORY_URL = 'https://rm-static.djicdn.com/live_json/chatroom.json';
+const CHATROOM_HISTORY_URL = '/live_json/chatroom.json';
 const GLOBAL_REALTIME_KEY = '__rmLiveLeancloudRealtime';
 const GLOBAL_IMCLIENT_KEY = '__rmLiveLeancloudImClient';
 

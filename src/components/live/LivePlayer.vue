@@ -9,9 +9,10 @@ import Button from 'primevue/button';
 import Message from 'primevue/message';
 import ProgressSpinner from 'primevue/progressspinner';
 import { useToast } from 'primevue/usetoast';
-import { onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { DanmuService } from '../../services/danmuService';
 import type { DanmuAttributes, DanmuMessage } from '../../types/api';
+import DanmuFilterDialog from '../dialogs/DanmuFilterDialog.vue';
 
 interface QualityOption {
   label: string;
@@ -31,6 +32,7 @@ interface Props {
 const props = defineProps<Props>();
 const toast = useToast();
 const hasShownAutoplayNotice = ref(false);
+const filterDialogVisible = ref(false);
 
 const emit = defineEmits<{
   retry: [];
@@ -49,6 +51,19 @@ let connectingService: DanmuService | null = null;
 
 const danmuFilterStore = useDanmuFilterStore();
 const userInfoStore = useUserInfoStore();
+const activeFilterCount = computed(() => danmuFilterStore.activeRuleCount);
+const filterActive = computed(() => danmuFilterStore.rules.enabled && activeFilterCount.value > 0);
+const filterSummary = computed(() => {
+  if (!danmuFilterStore.rules.enabled) {
+    return '过滤已关闭';
+  }
+
+  if (!activeFilterCount.value) {
+    return '未配置过滤规则';
+  }
+
+  return `关键词 ${danmuFilterStore.rules.keywords.length} / 学校 ${danmuFilterStore.rules.schools.length} / 用户 ${danmuFilterStore.rules.users.length}`;
+});
 
 async function sendDanmuByRealtime(d: Danmu): Promise<boolean> {
   const content = String(d?.text ?? '').trim();
@@ -217,7 +232,7 @@ async function initDanmu(roomId: string) {
           return;
         }
         emit('danmu', msg);
-        if (msg.source !== 'history') {
+        if (msg.source !== 'history' && danmuFilterStore.matchMessage(msg)) {
           pushDanmuToPlayer(msg);
         }
       },
@@ -281,7 +296,7 @@ function mountPlayer(url: string) {
         antiOverlap: true,
         synchronousPlayback: true,
         emitter: true,
-        filter: danmuFilterStore.filter,
+        filter: danmuFilterStore.matchTrackDanmu,
         beforeEmit: sendDanmuByRealtime,
       }),
       artplayerPluginChromecast({}),
@@ -395,6 +410,18 @@ onBeforeUnmount(async () => {
 
 <template>
   <div class="player-shell">
+    <div class="player-actions">
+      <Button
+        v-tooltip="{ value: filterSummary, hideDelay: 200 }"
+        :label="activeFilterCount ? `过滤 ${activeFilterCount}` : '过滤'"
+        icon="pi pi-filter"
+        size="small"
+        :severity="filterActive ? 'warn' : 'secondary'"
+        :variant="filterActive ? undefined : 'outlined'"
+        @click="filterDialogVisible = true"
+      />
+    </div>
+
     <div v-if="loading" class="overlay center">
       <ProgressSpinner />
     </div>
@@ -411,6 +438,8 @@ onBeforeUnmount(async () => {
     </div>
 
     <div ref="container" class="player-container" />
+
+    <DanmuFilterDialog v-model:visible="filterDialogVisible" />
   </div>
 </template>
 
@@ -423,6 +452,13 @@ onBeforeUnmount(async () => {
   min-height: 260px;
   aspect-ratio: 16 / 9;
   overflow: hidden;
+}
+
+.player-actions {
+  position: absolute;
+  right: 0.5rem;
+  top: 0.5rem;
+  z-index: 6;
 }
 
 .player-container {
