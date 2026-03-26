@@ -102,7 +102,7 @@ function onClick() {
 }
 
 .head-row h4 {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
 }
 
@@ -124,8 +124,8 @@ function onClick() {
 }
 
 .group-tag {
-  flex: 0 1 auto;
-  min-width: 0;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .group-tag :deep(.p-tag-label) {
