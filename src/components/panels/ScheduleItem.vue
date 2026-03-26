@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { DeferredContent } from 'primevue';
 import Button from 'primevue/button';
 import Card from 'primevue/card';
 import Tag from 'primevue/tag';
@@ -89,92 +90,94 @@ function openReplay() {
 </script>
 
 <template>
-  <Card class="schedule-item" :class="{ compact: props.compact }">
-    <template #content>
-      <header class="item-header">
-        <span class="event-title">{{ item.eventTitle || '赛事' }}</span>
-        <div class="header-center">
-          <span class="time-text">{{ matchTime }}</span>
-          <Button
-            v-if="canShowReplay"
-            icon="pi pi-play-circle"
-            rounded
-            text
-            severity="secondary"
-            size="small"
-            aria-label="查看回放"
-            @click="openReplay"
-          />
-        </div>
-        <div class="header-meta">
-          <Tag :value="item.zoneName || `站点 ${item.zoneId || '-'}`" severity="secondary" />
-          <Tag :value="matchOrderText" severity="contrast" />
-        </div>
-      </header>
+  <DeferredContent @load="console.log('loaded schedule item')">
+    <Card class="schedule-item" :class="{ compact: props.compact }">
+      <template #content>
+        <header class="item-header">
+          <span class="event-title">{{ item.eventTitle || '赛事' }}</span>
+          <div class="header-center">
+            <span class="time-text">{{ matchTime }}</span>
+            <Button
+              v-if="canShowReplay"
+              icon="pi pi-play-circle"
+              rounded
+              text
+              severity="secondary"
+              size="small"
+              aria-label="查看回放"
+              @click="openReplay"
+            />
+          </div>
+          <div class="header-meta">
+            <Tag :value="item.zoneName || `站点 ${item.zoneId || '-'}`" severity="secondary" />
+            <Tag :value="matchOrderText" severity="contrast" />
+          </div>
+        </header>
 
-      <div class="item-content">
-        <div class="team-column red-column">
-          <TeamInfoCard
-            :compact="props.compact"
-            :team-name="item.redTeam.teamName"
-            :college-name="item.redTeam.collegeName"
-            :logo="item.redTeam.logo"
-            :logo-size="props.compact ? '1.125rem' : ''"
-            :group-label="toGroupLabel(item.redTeam.teamName)"
-            :show-group-label="!props.compact"
-            :show-college-name="!props.compact"
-            logo-position="right"
-            @select="onSelectTeam"
-          />
-        </div>
+        <div class="item-content">
+          <div class="team-column red-column">
+            <TeamInfoCard
+              :compact="props.compact"
+              :team-name="item.redTeam.teamName"
+              :college-name="item.redTeam.collegeName"
+              :logo="item.redTeam.logo"
+              :logo-size="props.compact ? '1.125rem' : ''"
+              :group-label="toGroupLabel(item.redTeam.teamName)"
+              :show-group-label="!props.compact"
+              :show-college-name="!props.compact"
+              logo-position="right"
+              @select="onSelectTeam"
+            />
+          </div>
 
-        <div class="center-column">
-          <Tag :value="getBOLabel(item.planGameCount)" severity="info" />
-          <div class="status-row">
-            <div v-if="upperStatus === 'WAITING'" class="waiting-space" />
-            <div v-else-if="upperStatus === 'STARTED' || upperStatus === 'PLAYING'" class="live-wrap">
-              <div class="live-pill">
-                <i class="pi pi-circle-fill" />
-                <span>LIVE</span>
+          <div class="center-column">
+            <Tag :value="getBOLabel(item.planGameCount)" severity="info" />
+            <div class="status-row">
+              <div v-if="upperStatus === 'WAITING'" class="waiting-space" />
+              <div v-else-if="upperStatus === 'STARTED' || upperStatus === 'PLAYING'" class="live-wrap">
+                <div class="live-pill">
+                  <i class="pi pi-circle-fill" />
+                  <span>LIVE</span>
+                </div>
+                <span class="round-text">{{ liveRoundText }}</span>
               </div>
-              <span class="round-text">{{ liveRoundText }}</span>
+              <div v-else-if="isResultStatus(item.statusRaw)" class="score-row">
+                <span class="score-value" :class="{ winner: scoreParts.red > scoreParts.blue }">{{
+                  scoreParts.red
+                }}</span>
+                <span class="score-sep">-</span>
+                <span class="score-value" :class="{ winner: scoreParts.blue > scoreParts.red }">{{
+                  scoreParts.blue
+                }}</span>
+              </div>
             </div>
-            <div v-else-if="isResultStatus(item.statusRaw)" class="score-row">
-              <span class="score-value" :class="{ winner: scoreParts.red > scoreParts.blue }">{{
-                scoreParts.red
-              }}</span>
-              <span class="score-sep">-</span>
-              <span class="score-value" :class="{ winner: scoreParts.blue > scoreParts.red }">{{
-                scoreParts.blue
-              }}</span>
-            </div>
+          </div>
+
+          <div class="team-column blue-column">
+            <TeamInfoCard
+              :compact="props.compact"
+              :team-name="item.blueTeam.teamName"
+              :college-name="item.blueTeam.collegeName"
+              :logo="item.blueTeam.logo"
+              :logo-size="props.compact ? '1.125rem' : ''"
+              :group-label="toGroupLabel(item.blueTeam.teamName)"
+              :show-group-label="!props.compact"
+              :show-college-name="!props.compact"
+              @select="onSelectTeam"
+            />
           </div>
         </div>
 
-        <div class="team-column blue-column">
-          <TeamInfoCard
-            :compact="props.compact"
-            :team-name="item.blueTeam.teamName"
-            :college-name="item.blueTeam.collegeName"
-            :logo="item.blueTeam.logo"
-            :logo-size="props.compact ? '1.125rem' : ''"
-            :group-label="toGroupLabel(item.blueTeam.teamName)"
-            :show-group-label="!props.compact"
-            :show-college-name="!props.compact"
-            @select="onSelectTeam"
-          />
-        </div>
-      </div>
-
-      <ReplayVideoDialog
-        v-if="item.replayVideo"
-        v-model:visible="replayVisible"
-        :title="item.replayVideo.title"
-        :video-url="item.replayVideo.url"
-        :cover-url="item.replayVideo.coverUrl"
-      />
-    </template>
-  </Card>
+        <ReplayVideoDialog
+          v-if="item.replayVideo"
+          v-model:visible="replayVisible"
+          :title="item.replayVideo.title"
+          :video-url="item.replayVideo.url"
+          :cover-url="item.replayVideo.coverUrl"
+        />
+      </template>
+    </Card>
+  </DeferredContent>
 </template>
 
 <style scoped>

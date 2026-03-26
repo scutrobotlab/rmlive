@@ -61,81 +61,81 @@ function goToGithub() {
       </div>
     </template>
 
-    <template #end>
-      <div class="toolbar-actions">
-        <SelectButton
-          v-if="!isMobile"
-          class="zone-select-button-wrap"
-          :model-value="selectedZoneId"
-          :options="zoneOptions"
-          optionLabel="label"
-          optionValue="value"
-          optionDisabled="disabled"
-          fluid
-          size="small"
-          @update:model-value="onZoneChange"
-        >
-          <template #option="slotProps">
-            <div class="zone-option-content">
-              <span v-if="slotProps.option.liveLogo" class="zone-live-prefix" aria-hidden="true">
-                <i class="pi pi-video" />
-              </span>
-              <span class="zone-option-text">
-                <span class="zone-name">{{ slotProps.option.title }}</span>
-                <span v-if="showZoneDate(slotProps.option)" class="zone-date">{{ slotProps.option.dateText }}</span>
-              </span>
-            </div>
-          </template>
-        </SelectButton>
-        <Select
-          v-else
-          class="zone-select"
-          :model-value="selectedZoneId"
-          :options="zoneOptions"
-          optionLabel="label"
-          optionValue="value"
-          optionDisabled="disabled"
-          size="small"
-          placeholder="站点"
-          @update:model-value="onZoneChange"
-        >
-          <template #value="slotProps">
-            <div v-if="currentZoneOption" class="zone-option-content">
-              <span v-if="currentZoneOption.liveLogo" class="zone-live-prefix" aria-hidden="true">
-                <i class="pi pi-video" />
-              </span>
-              <span class="zone-option-text">
-                <span class="zone-name">{{ currentZoneOption.title }}</span>
-                <span v-if="showZoneDate(currentZoneOption)" class="zone-date">{{ currentZoneOption.dateText }}</span>
-              </span>
-            </div>
-            <span v-else>{{ slotProps.placeholder || '站点' }}</span>
-          </template>
-          <template #option="slotProps">
-            <div class="zone-option-content">
-              <span v-if="slotProps.option.liveLogo" class="zone-live-prefix" aria-hidden="true">
-                <i class="pi pi-video" />
-              </span>
-              <span class="zone-option-text">
-                <span class="zone-name">{{ slotProps.option.title }}</span>
-                <span v-if="showZoneDate(slotProps.option)" class="zone-date">{{ slotProps.option.dateText }}</span>
-              </span>
-            </div>
-          </template>
-        </Select>
+    <template #center>
+      <SelectButton
+        v-if="!isMobile"
+        class="zone-select-button-wrap"
+        :model-value="selectedZoneId"
+        :options="zoneOptions"
+        optionLabel="label"
+        optionValue="value"
+        optionDisabled="disabled"
+        fluid
+        size="small"
+        @update:model-value="onZoneChange"
+      >
+        <template #option="slotProps">
+          <div class="zone-option-content">
+            <span v-if="slotProps.option.liveLogo" class="zone-live-prefix" aria-hidden="true">
+              <i class="pi pi-video" />
+            </span>
+            <span class="zone-option-text">
+              <span class="zone-name">{{ slotProps.option.title }}</span>
+              <span v-if="showZoneDate(slotProps.option)" class="zone-date">{{ slotProps.option.dateText }}</span>
+            </span>
+          </div>
+        </template>
+      </SelectButton>
+      <Select
+        v-else
+        class="zone-select"
+        :model-value="selectedZoneId"
+        :options="zoneOptions"
+        optionLabel="label"
+        optionValue="value"
+        optionDisabled="disabled"
+        size="small"
+        placeholder="站点"
+        @update:model-value="onZoneChange"
+      >
+        <template #value="slotProps">
+          <div v-if="currentZoneOption" class="zone-option-content">
+            <span v-if="currentZoneOption.liveLogo" class="zone-live-prefix" aria-hidden="true">
+              <i class="pi pi-video" />
+            </span>
+            <span class="zone-option-text">
+              <span class="zone-name">{{ currentZoneOption.title }}</span>
+              <span v-if="showZoneDate(currentZoneOption)" class="zone-date">{{ currentZoneOption.dateText }}</span>
+            </span>
+          </div>
+          <span v-else>{{ slotProps.placeholder || '站点' }}</span>
+        </template>
+        <template #option="slotProps">
+          <div class="zone-option-content">
+            <span v-if="slotProps.option.liveLogo" class="zone-live-prefix" aria-hidden="true">
+              <i class="pi pi-video" />
+            </span>
+            <span class="zone-option-text">
+              <span class="zone-name">{{ slotProps.option.title }}</span>
+              <span v-if="showZoneDate(slotProps.option)" class="zone-date">{{ slotProps.option.dateText }}</span>
+            </span>
+          </div>
+        </template>
+      </Select>
+    </template>
 
-        <UserProfilePop />
-        <Button
-          icon="pi pi-github"
-          rounded
-          text
-          size="small"
-          severity="contrast"
-          aria-label="访问 GitHub 仓库"
-          @click="goToGithub"
-        />
-        <ThemeLogoButton :is-dark="isDark" @change="onThemeChange" />
-      </div>
+    <template #end>
+      <UserProfilePop />
+      <Button
+        icon="pi pi-github"
+        rounded
+        text
+        size="small"
+        severity="contrast"
+        aria-label="访问 GitHub 仓库"
+        @click="goToGithub"
+      />
+      <ThemeLogoButton :is-dark="isDark" @change="onThemeChange" />
     </template>
   </Toolbar>
 </template>
