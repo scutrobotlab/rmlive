@@ -1,3 +1,4 @@
+import { useLocalStorage } from '@vueuse/core';
 import { defineStore } from 'pinia';
 import { computed, ref, watch } from 'vue';
 import { BOOTSTRAP_PER_REQUEST_TIMEOUT_MS, BOOTSTRAP_TOTAL_TIMEOUT_MS } from '../constants/runtime';
@@ -22,7 +23,7 @@ import {
 import { extractInferredLiveZoneIdSet, extractScheduleZoneIdSet } from '../services/rmPayloadView';
 import { resolveDefaultQualityRes, resolveEffectiveStreamErrorMessage } from '../services/rmStreamView';
 import { getNowEpochSeconds } from '../services/timeNow';
-import { pickBestZoneCandidate, shouldAutoPromoteZone } from '../services/zoneSelection';
+import { shouldAutoPromoteZone } from '../services/zoneSelection';
 import {
   normalizeZoneId,
   resolveZoneUiState,
@@ -48,6 +49,7 @@ export const useRmDataStore = defineStore('rm-data', () => {
   const schedule = ref<Schedule | null>(null);
 
   const selectedZoneId = ref<string | null>(null);
+  const historySelectedZoneId = useLocalStorage('rmlive:zone-selection', null);
   const selectedQualityRes = ref<string | null>(null);
   const hasManualZoneSelection = ref(false);
 
@@ -125,42 +127,20 @@ export const useRmDataStore = defineStore('rm-data', () => {
     const currentOption = enabledOptions.find((item) => normalizeZoneId(item.value) === currentSelected) ?? null;
 
     const zones = liveZones.value;
-    const preferred = pickDefaultZoneId(zones);
+    const preferred = pickDefaultZoneId(zones, historySelectedZoneId.value);
     const liveFromMatches = enabledOptions.find((item) => inferredLiveZoneIdSet.value.has(normalizeZoneId(item.value)));
-    const withPlayableStream = enabledOptions.find((item) => {
-      const zone = zones.find((z) => normalizeZoneId(z.zoneId) === normalizeZoneId(item.value));
-      return Boolean(zone?.qualities?.[0]?.src);
-    });
-
-    const bestCandidate = pickBestZoneCandidate({
-      options,
-      enabledOptions,
-      inferredLiveZoneIdSet: inferredLiveZoneIdSet.value,
-      scheduleZoneIdSet: scheduleZoneIdSet.value,
-      liveZones: zones,
-      preferredZoneId: preferred,
-    });
-
-    if (!currentOption && bestCandidate) {
-      selectedZoneId.value = bestCandidate;
-      return;
-    }
-
-    if (!currentOption || !bestCandidate) {
-      return;
-    }
 
     if (
       shouldAutoPromoteZone({
         hasManualZoneSelection: hasManualZoneSelection.value,
-        currentOptionValue: currentOption.value,
+        currentOptionValue: currentOption?.value,
         liveFromMatchesValue: liveFromMatches?.value ?? null,
-        withPlayableStreamValue: withPlayableStream?.value ?? null,
         inferredLiveZoneIdSet: inferredLiveZoneIdSet.value,
         liveZones: zones,
       })
     ) {
-      selectedZoneId.value = bestCandidate;
+      selectedZoneId.value = preferred;
+      console.log('Auto-promoting zone selection to', preferred);
     }
   }
 
@@ -175,6 +155,7 @@ export const useRmDataStore = defineStore('rm-data', () => {
     }
 
     hasManualZoneSelection.value = true;
+    historySelectedZoneId.value = value;
     selectedZoneId.value = value;
     ensureQualitySelection();
   }

@@ -294,23 +294,30 @@ export function extractLiveZones(data: LiveGameInfo | null): LiveZoneOption[] {
     });
 }
 
-export function pickDefaultZoneId(zones: LiveZoneOption[]): string | null {
+export function pickDefaultZoneId(zones: LiveZoneOption[], historySelectedZoneId: string | null): string | null {
   if (!zones.length) {
     return null;
   }
 
-  const playableLive = zones.find((zone) => zone.liveState === 1 && zone.qualities.length > 0);
-  if (playableLive) {
-    return playableLive.zoneId;
+  // history&liveState > liveState&matchState > liveState > first.
+  const livingZones = zones.filter((zone) => zone.liveState === 1);
+  if (livingZones.length === 0) {
+    return zones[0].zoneId;
   }
 
-  const playableMatch = zones.find((zone) => zone.matchState === 1 && zone.qualities.length > 0);
-  if (playableMatch) {
-    return playableMatch.zoneId;
+  const historyAndLiving = historySelectedZoneId
+    ? livingZones.find((zone) => zone.zoneId === historySelectedZoneId)
+    : null;
+  if (historyAndLiving) {
+    return historyAndLiving.zoneId;
   }
 
-  const firstPlayable = zones.find((zone) => zone.qualities.length > 0);
-  return firstPlayable?.zoneId ?? zones[0].zoneId;
+  const livingAndMatching = livingZones.find((zone) => zone.matchState === 1);
+  if (livingAndMatching) {
+    return livingAndMatching.zoneId;
+  }
+
+  return zones[0].zoneId;
 }
 
 export function resolveLiveStreamUrl(

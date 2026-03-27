@@ -25,7 +25,6 @@ export interface ShouldAutoPromoteZoneParams {
   hasManualZoneSelection: boolean;
   currentOptionValue: string;
   liveFromMatchesValue: string | null;
-  withPlayableStreamValue: string | null;
   inferredLiveZoneIdSet: Set<string>;
   liveZones: LiveZoneLike[];
 }
@@ -68,14 +67,7 @@ export function pickBestZoneCandidate(params: PickBestZoneCandidateParams): stri
 }
 
 export function shouldAutoPromoteZone(params: ShouldAutoPromoteZoneParams): boolean {
-  const {
-    hasManualZoneSelection,
-    currentOptionValue,
-    liveFromMatchesValue,
-    withPlayableStreamValue,
-    inferredLiveZoneIdSet,
-    liveZones,
-  } = params;
+  const { hasManualZoneSelection, currentOptionValue, liveFromMatchesValue, inferredLiveZoneIdSet, liveZones } = params;
 
   if (hasManualZoneSelection) {
     return false;
@@ -85,9 +77,5 @@ export function shouldAutoPromoteZone(params: ShouldAutoPromoteZoneParams): bool
   const currentIsLive = inferredLiveZoneIdSet.has(currentNormalized);
   const shouldPromoteToLive = Boolean(liveFromMatchesValue && !currentIsLive);
 
-  const currentZone = liveZones.find((zone) => normalizeZoneId(zone.zoneId) === currentNormalized);
-  const currentHasPlayableStream = Boolean(currentZone?.qualities?.[0]?.src);
-  const shouldPromoteToPlayable = !currentHasPlayableStream && Boolean(withPlayableStreamValue);
-
-  return shouldPromoteToLive || shouldPromoteToPlayable;
+  return shouldPromoteToLive;
 }

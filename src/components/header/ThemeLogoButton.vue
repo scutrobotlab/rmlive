@@ -22,26 +22,13 @@ function onToggleTheme() {
 
 <template>
   <Button
-    class="theme-logo-button"
     :icon="iconClass"
     rounded
     text
     severity="contrast"
     :aria-label="ariaLabel"
+    size="small"
     @click="onToggleTheme"
   />
 </template>
-
-<style scoped>
-.theme-logo-button {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--p-surface-500) 45%, transparent);
-  background: color-mix(in srgb, var(--p-surface-200) 78%, transparent);
-}
-
-.theme-logo-button :deep(.pi) {
-  font-size: 0.88rem;
-}
-</style>
+s
