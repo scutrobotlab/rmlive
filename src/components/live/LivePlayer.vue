@@ -6,7 +6,7 @@ import { useUserInfoStore } from '@/stores/userInfo';
 import Artplayer, { Option } from 'artplayer';
 import artplayerPluginChromecast from 'artplayer-plugin-chromecast';
 import artplayerPluginDanmuku, { type Danmu } from 'artplayer-plugin-danmuku';
-import Hls from 'hls.js/dist/hls.light.mjs';
+import Hls from 'hls.js/dist/hls.js';
 import Button from 'primevue/button';
 import Message from 'primevue/message';
 import ProgressSpinner from 'primevue/progressspinner';
@@ -154,7 +154,7 @@ function pushDanmuToPlayer(msg: DanmuMessage) {
   const payload = {
     text: msg.text,
     color: '#FFFFFF',
-    time: player.currentTime,
+    time: 0,
     border: msg.nickname === userInfoStore.userInfo?.nickname,
   };
 
@@ -308,7 +308,7 @@ async function mountPlayer(url: string) {
       opacity: 1,
       fontSize: 22,
       antiOverlap: true,
-      synchronousPlayback: true,
+      synchronousPlayback: false,
       emitter: true,
       filter: danmuFilterStore.matchTrackDanmu,
       beforeEmit: sendDanmuByRealtime,
@@ -364,11 +364,14 @@ async function mountPlayer(url: string) {
         if (Hls.isSupported()) {
           const hls = new Hls({
             lowLatencyMode: true,
-            backBufferLength: 8,
-            maxBufferLength: 12,
-            maxMaxBufferLength: 20,
-            liveSyncDurationCount: 3,
-            liveMaxLatencyDurationCount: 6,
+            liveDurationInfinity: true,
+            liveSyncMode: 'edge',
+            backBufferLength: 8, // 只保留最近8秒已播放内容
+            maxBufferLength: 10, // 向前最多缓冲10秒
+            maxMaxBufferLength: 30, // 突破上限30秒
+            liveSyncDurationCount: 3, // 距直播边缘3个segment
+            maxLiveSyncPlaybackRate: 1.0, // 禁用倍速追赶（避免画面加速）
+            liveSyncOnStallIncrease: 0.25, // 卡顿恢复后增加0.25秒缓冲
           });
           hls.loadSource(m3u8Url);
           hls.attachMedia(video);
