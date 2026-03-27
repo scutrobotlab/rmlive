@@ -44,7 +44,6 @@ describe('shouldAutoPromoteZone', () => {
       hasManualZoneSelection: true,
       currentOptionValue: '1',
       liveFromMatchesValue: '2',
-      withPlayableStreamValue: '2',
       inferredLiveZoneIdSet: new Set(),
       liveZones: [{ zoneId: '1', qualities: [{ src: null }] }],
     });
@@ -57,7 +56,6 @@ describe('shouldAutoPromoteZone', () => {
       hasManualZoneSelection: false,
       currentOptionValue: '1',
       liveFromMatchesValue: '2',
-      withPlayableStreamValue: null,
       inferredLiveZoneIdSet: new Set(['2']),
       liveZones: [
         { zoneId: '1', qualities: [{ src: null }] },
