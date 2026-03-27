@@ -1,4 +1,6 @@
 ﻿<script setup lang="ts">
+import { useDanmuFilterStore } from '@/stores/danmuFilter';
+import { Button, useToast } from 'primevue';
 import Card from 'primevue/card';
 import Popover from 'primevue/popover';
 import Tag from 'primevue/tag';
@@ -42,17 +44,35 @@ onBeforeUnmount(() => {
 });
 
 const year = computed(() => `${tooltipMeta.value.year}年${tooltipMeta.value.role}`);
+
+const filter = useDanmuFilterStore();
+const toast = useToast();
+const addFilterUser = () => {
+  if (!tooltipMeta.value.nickname && !tooltipMeta.value.username) {
+    return;
+  }
+  filter.addUser(tooltipMeta.value.nickname || tooltipMeta.value.username);
+  toast.add({
+    severity: 'success',
+    summary: '已添加用户屏蔽',
+    detail: tooltipMeta.value.nickname || tooltipMeta.value.username,
+  });
+};
+
+const addFilterSchool = () => {
+  if (tooltipMeta.value.school) {
+    filter.addSchool(tooltipMeta.value.school);
+    toast.add({
+      severity: 'success',
+      summary: '已添加学校屏蔽',
+      detail: tooltipMeta.value.school,
+    });
+  }
+};
 </script>
 
 <template>
-  <article
-    class="danmu-item"
-    tabindex="0"
-    @mouseenter="showTooltip"
-    @mouseleave="scheduleHide"
-    @focusin="showTooltip"
-    @focusout="scheduleHide"
-  >
+  <article class="danmu-item" tabindex="0" @contextmenu.prevent="showTooltip" @blur="scheduleHide">
     <aside class="meta-col">
       <p class="school">{{ school }}</p>
       <p class="nickname">{{ nickname }}</p>
@@ -72,6 +92,10 @@ const year = computed(() => `${tooltipMeta.value.year}年${tooltipMeta.value.rol
             </div>
             <p v-if="tooltipMeta.username" class="danmu-tooltip-raw">{{ tooltipMeta.username }}</p>
             <p class="danmu-tooltip-time">{{ tooltipMeta.timeLabel }}</p>
+          </template>
+          <template #footer>
+            <Button label="屏蔽学校" @click="addFilterSchool" size="small" severity="danger" rounded text />
+            <Button label="屏蔽用户" @click="addFilterUser" size="small" severity="danger" rounded text />
           </template>
         </Card>
       </div>
