@@ -42,6 +42,11 @@ export function parseStructuredName(name: string): ParsedNameMeta | null {
   };
 }
 
+export function formatStructuredName(meta: Partial<ParsedNameMeta>): string {
+  const { year, role, school, nickname } = meta;
+  return [year, role, school, nickname].join('-');
+}
+
 export function resolveDisplaySchool(msg: DanmuMessage): string {
   if (msg.schoolName?.trim()) {
     return msg.schoolName.trim();

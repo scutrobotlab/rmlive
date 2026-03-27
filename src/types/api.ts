@@ -96,7 +96,7 @@ export interface DanmuAttributes {
   schoolName: string;
   badge: string;
   racingAge: string;
-  role: string;
+  position: string;
   isAdmin: boolean;
   username?: string;
 }

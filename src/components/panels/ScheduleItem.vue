@@ -90,7 +90,7 @@ function openReplay() {
 </script>
 
 <template>
-  <DeferredContent @load="console.log('loaded schedule item')">
+  <DeferredContent>
     <Card class="schedule-item" :class="{ compact: props.compact }">
       <template #content>
         <header class="item-header">

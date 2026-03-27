@@ -44,7 +44,7 @@ function getScoreParts(score: string | undefined) {
 }
 
 function showSlug(slug: string): boolean {
-  return Boolean(String(slug || '').trim());
+  return slug && slug.trim() !== '' && slug.trim() !== '-';
 }
 </script>
 

@@ -127,18 +127,17 @@ const uiStore = useUiStore();
     </template>
 
     <template #end>
-      <div v-if="!uiStore.isMobile">
-        <UserProfilePop />
-        <Button
-          icon="pi pi-github"
-          rounded
-          text
-          size="small"
-          severity="contrast"
-          aria-label="访问 GitHub 仓库"
-          @click="goToGithub"
-        />
-      </div>
+      <UserProfilePop v-if="!uiStore.isMobile" />
+      <Button
+        v-if="!uiStore.isMobile"
+        icon="pi pi-github"
+        rounded
+        text
+        size="small"
+        severity="contrast"
+        aria-label="访问 GitHub 仓库"
+        @click="goToGithub"
+      />
       <ThemeLogoButton :is-dark="isDark" @change="onThemeChange" />
     </template>
   </Toolbar>

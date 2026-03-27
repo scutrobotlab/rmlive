@@ -124,6 +124,7 @@ export class DanmuService {
 
       this.messageHandler = (message: any) => {
         this.handleRawMessage(message, TextMessage, 'realtime');
+        console.debug('[Danmu] Received message:', message);
       };
 
       // LeanCloud 推荐事件常量监听
@@ -401,6 +402,17 @@ export class DanmuService {
       const message = new TextMessage(text);
       message.setAttributes(attrs);
       await this.conversationInstance.send(message);
+
+      this.emitDanmu({
+        id: uuid(),
+        timestamp: Date.now(),
+        text,
+        username: attrs.username,
+        nickname: attrs.nickname,
+        schoolName: attrs.schoolName,
+        badge: attrs.badge,
+        source: 'realtime',
+      });
     } catch (error) {
       this.handlers.onError?.(error);
       throw error;

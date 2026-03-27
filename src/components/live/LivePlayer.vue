@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatStructuredName } from '@/services/danmuView';
 import { useDanmuFilterStore } from '@/stores/danmuFilter';
 import { useUiStore } from '@/stores/ui';
 import { useUserInfoStore } from '@/stores/userInfo';
@@ -87,9 +88,14 @@ async function sendDanmuByRealtime(d: Danmu): Promise<boolean> {
     schoolName: userInfoStore.userInfo.school || '',
     badge: userInfoStore.userInfo.badge?.[0] || '',
     racingAge: String(userInfoStore.userInfo.racingAge ?? ''),
-    role: userInfoStore.userInfo.role || '',
+    position: userInfoStore.userInfo.role || '',
     isAdmin: false,
-    username: userInfoStore.userInfo.realName || userInfoStore.userInfo.nickname || '匿名用户',
+    username: formatStructuredName({
+      year: userInfoStore.userInfo.racingAge ? `${userInfoStore.userInfo.racingAge}` : '',
+      role: userInfoStore.userInfo.role || '',
+      school: userInfoStore.userInfo.school || '',
+      nickname: userInfoStore.userInfo.nickname || '',
+    }),
   };
   // const myAttributes: DanmuAttributes = {
   //   nickname: userInfoStore.userInfo.nickname || '',
@@ -102,12 +108,12 @@ async function sendDanmuByRealtime(d: Danmu): Promise<boolean> {
 
   try {
     await danmuService.value.sendMessage(content, myAttributes);
-    return true;
   } catch (error) {
     console.error('[LivePlayer] Failed to send danmu:', error);
     toast.add({ severity: 'error', summary: '发送失败', detail: '弹幕发送失败，请稍后重试' });
-    return false;
   }
+
+  return false; // 阻止 artplayer 插件的默认发送行为
 }
 
 async function destroyDanmu() {
@@ -149,7 +155,7 @@ function pushDanmuToPlayer(msg: DanmuMessage) {
     text: msg.text,
     color: '#FFFFFF',
     time: player.currentTime,
-    border: false,
+    border: msg.nickname === userInfoStore.userInfo?.nickname,
   };
 
   if (playerReady && danmukuPlugin?.emit) {
@@ -210,7 +216,7 @@ function exposeDanmuDebugApi() {
       schoolName: 'Local Debug Room',
       badge: 'DEBUG',
       racingAge: '',
-      role: 'debug',
+      position: 'debug',
       isAdmin: false,
       username: 'debug-user',
     });
