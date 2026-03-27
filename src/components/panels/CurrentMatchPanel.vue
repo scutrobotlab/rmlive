@@ -51,14 +51,6 @@ const uiStore = useUiStore();
 const dataStore = useRmDataStore();
 const runningMatch = computed(() => {
   const rows = getScheduleRows(dataStore.schedule, dataStore.liveGameInfo);
-  console.log(
-    'currentAndNextMatches',
-    dataStore.currentAndNextMatches,
-    'liveGameInfo',
-    dataStore.liveGameInfo,
-    'rows',
-    rows,
-  );
   return getRunningMatch(rows, props.selectedZoneId);
 });
 </script>
