@@ -98,6 +98,15 @@ async function sendDanmuByRealtime(d: Danmu): Promise<boolean> {
     }),
   };
 
+  const m = d?.mode;
+  if (m === 0 || m === 1 || m === 2) {
+    myAttributes.mode = m;
+  }
+  const c = typeof d?.color === 'string' ? d.color.trim() : '';
+  if (c) {
+    myAttributes.color = c;
+  }
+
   try {
     await danmuService.value.sendMessage(content, myAttributes);
   } catch (error) {
@@ -145,7 +154,8 @@ function pushDanmuToPlayer(msg: DanmuMessage) {
 
   const payload = {
     text: msg.text,
-    color: '#FFFFFF',
+    color: msg.color ?? '#FFFFFF',
+    mode: msg.mode ?? 0,
     time: 0,
     border: msg.nickname === userInfoStore.userInfo?.nickname,
   };

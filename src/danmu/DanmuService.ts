@@ -1,6 +1,6 @@
 import { useLocalStorage } from '@vueuse/core';
 import { v4 as uuid } from 'uuid';
-import type { DanmuAttributes, DanmuMessage } from '../types/api';
+import type { DanmuAttributes, DanmuMessage, DanmuMode } from '../types/api';
 import { fetchJson } from '../api/http';
 import { buildLiveJsonUrl } from '../utils/urlProxy';
 
@@ -74,6 +74,28 @@ async function getSharedImClient(): Promise<any> {
   }
 
   return sharedImClientInitPromise;
+}
+
+function normalizeDanmuStyleFromAttrs(attrs: Record<string, unknown>): Pick<DanmuMessage, 'mode' | 'color'> {
+  const out: Pick<DanmuMessage, 'mode' | 'color'> = {};
+  const rawMode = attrs.mode;
+  let n: number | undefined;
+  if (typeof rawMode === 'number' && Number.isFinite(rawMode)) {
+    n = Math.round(rawMode);
+  } else if (typeof rawMode === 'string' && rawMode.trim() !== '') {
+    const parsed = Number(rawMode);
+    if (Number.isFinite(parsed)) {
+      n = Math.round(parsed);
+    }
+  }
+  if (n !== undefined && n >= 0 && n <= 2) {
+    out.mode = n as DanmuMode;
+  }
+  const rawColor = attrs.color;
+  if (typeof rawColor === 'string' && rawColor.trim()) {
+    out.color = rawColor.trim();
+  }
+  return out;
 }
 
 interface DanmuServiceHandlers {
@@ -165,17 +187,20 @@ export class DanmuService {
   private handleRawMessage(message: any, TextMessage: any, source: 'realtime' | 'history'): void {
     if (message instanceof TextMessage) {
       const attrs = message.getAttributes?.() || {};
+      const attrsRec = attrs as Record<string, unknown>;
       const text = message.getText?.() || '';
+      const style = normalizeDanmuStyleFromAttrs(attrsRec);
 
       const danmu: DanmuMessage = {
         id: this.toDanmuId(message, source),
         timestamp: this.toTimestamp((message as any).timestamp),
         text: text,
-        username: attrs.username || '匿名用户',
-        nickname: attrs.nickname || '',
-        schoolName: attrs.schoolName || '',
-        badge: attrs.badge || '',
+        username: String(attrsRec.username ?? '匿名用户'),
+        nickname: String(attrsRec.nickname ?? ''),
+        schoolName: String(attrsRec.schoolName ?? ''),
+        badge: String(attrsRec.badge ?? ''),
         source,
+        ...style,
       };
       this.emitDanmu(danmu);
       return;
@@ -183,9 +208,10 @@ export class DanmuService {
 
     const content = message?.content;
     const rawText = content?._lctext ?? content?.text ?? '';
-    const rawAttrs = content?._lcattrs ?? message?.attributes ?? {};
+    const rawAttrs = (content?._lcattrs ?? message?.attributes ?? {}) as Record<string, unknown>;
 
     if (rawText) {
+      const style = normalizeDanmuStyleFromAttrs(rawAttrs);
       const danmu: DanmuMessage = {
         id: this.toDanmuId(message, source),
         timestamp: this.toTimestamp(message?.timestamp ?? rawAttrs.sendTime),
@@ -195,6 +221,7 @@ export class DanmuService {
         schoolName: String(rawAttrs.schoolName || ''),
         badge: String(rawAttrs.badge || ''),
         source,
+        ...style,
       };
       this.emitDanmu(danmu);
     }
@@ -354,6 +381,7 @@ export class DanmuService {
         const id = String(rec.id ?? rec.messageId ?? rec.msgId ?? `api-${chatRoomId}-${idx}`);
         const timestampValue = rec.timestamp ?? rec.sendTime ?? attrs.sendTime ?? nestedAttrs.sendTime;
         const timestamp = this.toTimestamp(timestampValue);
+        const style = normalizeDanmuStyleFromAttrs({ ...nestedAttrs, ...attrs });
 
         return {
           id,
@@ -364,6 +392,7 @@ export class DanmuService {
           schoolName: String(attrs.schoolName ?? nestedAttrs.schoolName ?? rec.schoolName ?? ''),
           badge: String(attrs.badge ?? nestedAttrs.badge ?? rec.badge ?? ''),
           source: 'history',
+          ...style,
         } as DanmuMessage;
       })
       .filter((v): v is DanmuMessage => !!v);
@@ -397,6 +426,10 @@ export class DanmuService {
       message.setAttributes(attrs);
       await this.conversationInstance.send(message);
 
+      const style = normalizeDanmuStyleFromAttrs({
+        mode: attrs.mode as unknown,
+        color: attrs.color as unknown,
+      });
       this.emitDanmu({
         id: uuid(),
         timestamp: Date.now(),
@@ -406,6 +439,7 @@ export class DanmuService {
         schoolName: attrs.schoolName,
         badge: attrs.badge,
         source: 'realtime',
+        ...style,
       });
     } catch (error) {
       this.handlers.onError?.(error);
