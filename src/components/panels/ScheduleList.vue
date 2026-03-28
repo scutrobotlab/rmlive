@@ -34,7 +34,10 @@ function onTeamSelect(payload: TeamSelectPayload) {
     <section v-for="group in dateGroups" :key="group.date" class="date-group">
       <div class="date-sticky">
         <Divider align="left" type="solid" class="date-divider">
-          <b class="divider-date">{{ group.dateLabel }}</b>
+          <span class="divider-date-row">
+            <i class="pi pi-calendar divider-date-icon" aria-hidden="true" />
+            <b class="divider-date">{{ group.dateLabel }}</b>
+          </span>
         </Divider>
       </div>
 
@@ -61,7 +64,7 @@ function onTeamSelect(payload: TeamSelectPayload) {
 .schedule-list {
   width: 100%;
   min-width: 0;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 .date-group {
@@ -86,10 +89,27 @@ function onTeamSelect(payload: TeamSelectPayload) {
   margin: 0.2rem 0 0.35rem;
 }
 
+.divider-date-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.divider-date-icon {
+  font-size: 1.05rem;
+  color: var(--p-primary-color, #3b82f6);
+  opacity: 0.92;
+}
+
 .divider-date {
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: var(--text-color-secondary);
+  font-weight: 700;
+  font-size: 1.08rem;
+  letter-spacing: 0.02em;
+  color: var(--text-color, var(--p-text-color));
+}
+
+.app-dark .divider-date {
+  color: var(--p-text-color, #e2e8f0);
 }
 
 @media (max-width: 768px) {
@@ -97,8 +117,12 @@ function onTeamSelect(payload: TeamSelectPayload) {
     margin: 0.15rem 0 0.28rem;
   }
 
+  .divider-date-icon {
+    font-size: 0.95rem;
+  }
+
   .divider-date {
-    font-size: 0.85rem;
+    font-size: 0.98rem;
   }
 }
 </style>
