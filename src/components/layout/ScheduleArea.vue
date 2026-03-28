@@ -1,21 +1,14 @@
 <script setup lang="ts">
+import { useRmDataStore } from '@/stores/rmData';
+import { useUiStore } from '@/stores/ui';
 import Skeleton from 'primevue/skeleton';
+import { storeToRefs } from 'pinia';
 import { defineAsyncComponent } from 'vue';
-import type { LiveGameInfo, Schedule } from '../../types/api';
 
-interface TeamSelectPayload {
-  teamName: string;
-  zoneId?: string | null;
-  zoneName?: string | null;
-}
+import type { TeamSelectPayload } from '@/types/teamSelect';
 
 interface Props {
-  isMobile: boolean;
   enabled: boolean;
-  payload: Schedule | null;
-  liveGameInfo: LiveGameInfo | null;
-  selectedZoneId: string | null;
-  teamGroupMap?: Record<string, { group: string; rank: string }>;
 }
 
 defineProps<Props>();
@@ -23,6 +16,12 @@ defineProps<Props>();
 const emit = defineEmits<{
   teamSelect: [payload: TeamSelectPayload];
 }>();
+
+const uiStore = useUiStore();
+const { isMobile } = storeToRefs(uiStore);
+
+const dataStore = useRmDataStore();
+const { selectedZoneId, teamGroupMap } = storeToRefs(dataStore);
 
 const SchedulePanel = defineAsyncComponent(() => import('../panels/SchedulePanel.vue'));
 
@@ -32,11 +31,9 @@ function onTeamSelect(payload: TeamSelectPayload) {
 </script>
 
 <template>
-  <section class="lower-grid">
+  <section id="rm-schedule-panel" class="lower-grid">
     <div v-if="enabled" class="schedule-cell">
       <SchedulePanel
-        :payload="payload"
-        :live-game-info="liveGameInfo"
         :selected-zone-id="selectedZoneId"
         :team-group-map="teamGroupMap"
         :is-mobile="isMobile"
@@ -58,7 +55,11 @@ function onTeamSelect(payload: TeamSelectPayload) {
   grid-template-columns: 1fr;
 }
 
+.schedule-cell {
+  min-width: 0;
+}
+
 .schedule-placeholder {
-  opacity: 0.6;
+  min-width: 0;
 }
 </style>

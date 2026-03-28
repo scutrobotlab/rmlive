@@ -1,28 +1,21 @@
 <script setup lang="ts">
+import { useRmDataStore } from '@/stores/rmData';
 import { useUiStore } from '@/stores/ui';
+import type { ZoneOptionItem } from '@/utils/zoneView';
 import Button from 'primevue/button';
 import Select from 'primevue/select';
 import SelectButton from 'primevue/selectbutton';
 import Toolbar from 'primevue/toolbar';
+import { storeToRefs } from 'pinia';
 import { computed } from 'vue';
-import type { ZoneOptionItem } from '../../services/zoneView';
 import ThemeLogoButton from './ThemeLogoButton.vue';
 import UserProfilePop from './UserProfilePop.vue';
 
-interface Props {
-  isMobile: boolean;
-  isDark: boolean;
-  scheduleEventTitle?: string | null;
-  selectedZoneId: string | null;
-  zoneOptions: ZoneOptionItem[];
-}
+const dataStore = useRmDataStore();
+const uiStore = useUiStore();
 
-const props = defineProps<Props>();
-
-const emit = defineEmits<{
-  zoneChange: [value: string];
-  themeChange: [value: boolean];
-}>();
+const { isMobile, isDark } = storeToRefs(uiStore);
+const { scheduleEventTitle, selectedZoneId, zoneOptions } = storeToRefs(dataStore);
 
 const brandLogoUrl = `${import.meta.env.BASE_URL}rmlive-logo.svg`;
 
@@ -31,22 +24,20 @@ function showZoneDate(option: ZoneOptionItem): boolean {
 }
 
 const currentZoneOption = computed(() => {
-  return props.zoneOptions.find((item) => String(item.value) === String(props.selectedZoneId ?? '')) ?? null;
+  return zoneOptions.value.find((item) => String(item.value) === String(selectedZoneId.value ?? '')) ?? null;
 });
 
 function onZoneChange(value: string) {
-  emit('zoneChange', value);
+  dataStore.setZone(value);
 }
 
 function onThemeChange(value: boolean) {
-  emit('themeChange', value);
+  uiStore.setDarkMode(value);
 }
 
 function goToGithub() {
   window.open('https://github.com/scutrobotlab/rmlive', '_blank');
 }
-
-const uiStore = useUiStore();
 </script>
 
 <template>
@@ -56,7 +47,7 @@ const uiStore = useUiStore();
         <img :src="brandLogoUrl" alt="RMLive logo" class="brand-logo" />
         <div class="toolbar-brand-meta" v-if="!uiStore.isMobile">
           <h1>
-            <span>RMLive - Better 直播间</span>
+            <span>RMLive - Better 直播流</span>
             <small v-if="scheduleEventTitle" class="event-title">{{ scheduleEventTitle }}</small>
           </h1>
           <p>更清晰的赛事视图，更顺滑的直播体验</p>
@@ -70,9 +61,9 @@ const uiStore = useUiStore();
         class="zone-select-button-wrap"
         :model-value="selectedZoneId"
         :options="zoneOptions"
-        optionLabel="label"
-        optionValue="value"
-        optionDisabled="disabled"
+        option-label="label"
+        option-value="value"
+        option-disabled="disabled"
         size="small"
         @update:model-value="onZoneChange"
       >
@@ -93,9 +84,9 @@ const uiStore = useUiStore();
         class="zone-select"
         :model-value="selectedZoneId"
         :options="zoneOptions"
-        optionLabel="label"
-        optionValue="value"
-        optionDisabled="disabled"
+        option-label="label"
+        option-value="value"
+        option-disabled="disabled"
         size="small"
         placeholder="站点"
         @update:model-value="onZoneChange"

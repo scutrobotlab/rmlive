@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import Tag from 'primevue/tag';
+import type { TeamSelectPayload } from '@/types/teamSelect';
+import TeamGroupTag from './TeamGroupTag.vue';
 import TeamLogo from './TeamLogo.vue';
 
 interface Props {
@@ -13,6 +14,8 @@ interface Props {
   clickable?: boolean;
   compact?: boolean;
   logoPosition?: 'left' | 'right';
+  zoneId?: string | null;
+  zoneName?: string | null;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -25,17 +28,24 @@ const props = withDefaults(defineProps<Props>(), {
   clickable: true,
   compact: false,
   logoPosition: 'left',
+  zoneId: null,
+  zoneName: null,
 });
 
 const emit = defineEmits<{
-  select: [teamName: string];
+  select: [payload: TeamSelectPayload];
 }>();
 
 function onClick() {
   if (!props.clickable || !props.teamName || props.teamName === '-') {
     return;
   }
-  emit('select', props.teamName);
+  emit('select', {
+    teamName: props.teamName,
+    collegeName: props.collegeName,
+    zoneId: props.zoneId,
+    zoneName: props.zoneName,
+  });
 }
 </script>
 
@@ -46,7 +56,14 @@ function onClick() {
       <div class="meta">
         <div class="head-row">
           <h4>{{ teamName }}</h4>
-          <Tag v-if="showGroupLabel && groupLabel" :value="groupLabel" severity="info" class="group-tag" />
+          <TeamGroupTag
+            v-if="showGroupLabel && groupLabel"
+            :label="groupLabel"
+            :team-name="teamName"
+            :zone-id="zoneId"
+            :zone-name="zoneName"
+            @pick-team="emit('select', $event)"
+          />
         </div>
         <p v-if="showCollegeName">{{ collegeName || '-' }}</p>
       </div>
@@ -123,15 +140,6 @@ function onClick() {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.group-tag {
-  flex: 0 0 auto;
-  white-space: nowrap;
-}
-
-.group-tag :deep(.p-tag-label) {
-  font-size: 0.68rem;
 }
 
 .team-info.compact {

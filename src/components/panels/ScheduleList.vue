@@ -1,17 +1,12 @@
 <script setup lang="ts">
 import Divider from 'primevue/divider';
 import { computed } from 'vue';
-import { groupScheduleRowsByDate, type ScheduleRowItem } from '../../services/scheduleView';
+import type { TeamSelectPayload } from '@/types/teamSelect';
+import { groupScheduleRowsByDate, type MatchView } from '@/utils/matchView';
 import ScheduleItem from './ScheduleItem.vue';
 
-interface TeamSelectPayload {
-  teamName: string;
-  zoneId?: string | null;
-  zoneName?: string | null;
-}
-
 interface Props {
-  rows: ScheduleRowItem[];
+  rows: MatchView[];
   teamGroupMap?: Record<string, { group: string; rank: string }>;
   compact?: boolean;
   dateOrder?: 'asc' | 'desc';

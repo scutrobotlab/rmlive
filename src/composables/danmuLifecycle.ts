@@ -1,5 +1,5 @@
 import { watch, type Ref, type WatchStopHandle } from 'vue';
-import { logInfo } from './observability';
+import { logInfo } from '../utils/observability';
 
 export function bindDanmuRoomReset(chatRoomId: Ref<string | null>, clearMessages: () => void): WatchStopHandle {
   return watch(

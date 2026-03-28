@@ -3,11 +3,11 @@ import { UserInfo } from '@/types/user';
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 
+export const isIFrame = window.self !== window.top;
+
 export const useUserInfoStore = defineStore('userInfo', () => {
   const userInfo = ref<UserInfo | null>(null);
   const isRequesting = ref(false);
-
-  const isIFrame = window.self !== window.top;
 
   const requestUserInfo = async (retryCount = 0): Promise<void> => {
     if (userInfo.value) {

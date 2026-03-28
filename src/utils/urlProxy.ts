@@ -26,7 +26,6 @@ function buildLiveJsonProxyUrl(rawUrl: string): string {
     return rawUrl;
   }
 
-  // Extract path after /live_json
   const liveJsonMatch = rawUrl.match(/^\/live_json\/(.*?)(?:\?|$)/);
   if (!liveJsonMatch) {
     return rawUrl;
@@ -34,7 +33,6 @@ function buildLiveJsonProxyUrl(rawUrl: string): string {
 
   const pathPart = liveJsonMatch[1];
 
-  // If proxy is configured, use it; otherwise use full URL
   if (hasLiveJsonProxy()) {
     return `${LIVEJSON_PROXY_ENV}/${pathPart}`;
   }

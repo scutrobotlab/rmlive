@@ -31,4 +31,3 @@ function onToggleTheme() {
     @click="onToggleTheme"
   />
 </template>
-s

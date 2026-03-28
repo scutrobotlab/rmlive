@@ -1,11 +1,11 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { useDanmuFilterStore } from '@/stores/danmuFilter';
 import { Button, useToast } from 'primevue';
 import Card from 'primevue/card';
 import Popover from 'primevue/popover';
 import Tag from 'primevue/tag';
 import { computed, onBeforeUnmount, ref } from 'vue';
-import { resolveDisplayNickname, resolveDisplaySchool, resolveTooltipMeta } from '../../services/danmuView';
+import { resolveDisplayNickname, resolveDisplaySchool, resolveTooltipMeta } from '@/utils/danmuView';
 import type { DanmuMessage } from '../../types/api';
 
 const props = defineProps<{

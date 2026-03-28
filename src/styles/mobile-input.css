@@ -1,0 +1,16 @@
+/* Reduce iOS Safari zoom-on-focus for small inputs (schedule filters, overlays). */
+@media (max-width: 768px) {
+  html {
+    touch-action: manipulation;
+  }
+
+  .p-multiselect,
+  .p-multiselect .p-multiselect-label,
+  .p-multiselect .p-inputtext,
+  .p-multiselect-overlay .p-inputtext,
+  .p-multiselect-panel .p-inputtext,
+  .p-overlay .p-inputtext,
+  .p-inputtext {
+    font-size: 16px !important;
+  }
+}

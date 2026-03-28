@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { buildImageUrl } from '../../services/urlProxy';
+import { buildImageUrl } from '@/utils/urlProxy';
 
 interface Props {
   logo?: string;

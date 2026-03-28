@@ -9,7 +9,7 @@ import {
   isDanmuTextBlocked,
   normalizeDanmuFilterRules,
   normalizeDanmuFilterToken,
-} from '../services/danmuFilterRules';
+} from '../utils/danmuFilterRules';
 import type { DanmuFilterRules, DanmuMessage } from '../types/api';
 
 const DANMU_FILTER_RULES_KEY = 'rm-live-danmu-filter-rules';

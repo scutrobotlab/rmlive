@@ -8,9 +8,9 @@ import type {
   RobotData,
   Schedule,
 } from '../types/api';
+import { buildLiveJsonUrl } from '../utils/urlProxy';
 import { fetchJson } from './http';
 import { startPolling, type PollingTask } from './polling';
-import { buildLiveJsonUrl } from './urlProxy';
 
 const API_BASE = '/live_json';
 
@@ -223,7 +223,6 @@ function toStateValue(value: unknown): number {
 function toQualityOption(item: LiveStreamCandidate, index: number): LiveQualityOption | null {
   const src = typeof item.src === 'string' ? item.src : '';
 
-  // 仅选择可直接用于网页播放器的 http(s) m3u8 链接
   if (!src || !src.startsWith('http')) {
     return null;
   }
@@ -299,7 +298,6 @@ export function pickDefaultZoneId(zones: LiveZoneOption[], historySelectedZoneId
     return null;
   }
 
-  // history&liveState > liveState&matchState > liveState > first.
   const livingZones = zones.filter((zone) => zone.liveState === 1);
   if (livingZones.length === 0) {
     return zones[0].zoneId;

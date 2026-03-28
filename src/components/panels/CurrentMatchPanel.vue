@@ -1,33 +1,29 @@
 <script setup lang="ts">
-import { getRunningMatch, getScheduleRows } from '@/services/scheduleView';
 import { useRmDataStore } from '@/stores/rmData';
 import { useUiStore } from '@/stores/ui';
+import type { TeamSelectPayload } from '@/types/teamSelect';
+import { resolvePayloadByZone, toMatchView } from '@/utils/matchView';
 import Card from 'primevue/card';
 import Panel from 'primevue/panel';
 import Tag from 'primevue/tag';
+import { storeToRefs } from 'pinia';
 import { computed } from 'vue';
-import { resolvePayloadByZone, toMatchView } from '../../services/matchView';
-import type { CurrentAndNextMatches } from '../../types/api';
 import MatchBlock from './MatchBlock.vue';
 import ScheduleItem from './ScheduleItem.vue';
 
-interface Props {
-  payload: CurrentAndNextMatches | null;
-  selectedZoneId: string | null;
-  selectedZoneName: string | null;
-  selectedZoneLiveState?: number | null;
-  nextExpanded?: boolean;
-  teamGroupMap?: Record<string, { group: string; rank: string }>;
-}
-
-const props = defineProps<Props>();
 const emit = defineEmits<{
-  teamSelect: [teamName: string];
-  updateNextExpanded: [expanded: boolean];
+  teamSelect: [payload: TeamSelectPayload];
 }>();
 
-const zonePayload = computed(() => resolvePayloadByZone(props.payload, props.selectedZoneId, props.selectedZoneName));
-const current = computed(() => toMatchView(zonePayload.value?.currentMatch));
+const uiStore = useUiStore();
+const dataStore = useRmDataStore();
+
+const { currentAndNextMatches, selectedZoneId, selectedZoneName, teamGroupMap, runningMatchForSelectedZone } =
+  storeToRefs(dataStore);
+
+const zonePayload = computed(() =>
+  resolvePayloadByZone(currentAndNextMatches.value, selectedZoneId.value, selectedZoneName.value),
+);
 const next = computed(() => toMatchView(zonePayload.value?.nextMatch));
 const nextTeamsLabel = computed(() => {
   if (!next.value) {
@@ -39,48 +35,38 @@ const nextTeamsLabel = computed(() => {
   return `${red} VS ${blue}`;
 });
 
-function onSelectTeam(teamName: string) {
-  emit('teamSelect', teamName);
+function onSelectTeam(payload: TeamSelectPayload) {
+  emit('teamSelect', payload);
 }
 
 function onNextPanelCollapsedChange(collapsed: boolean) {
-  emit('updateNextExpanded', !collapsed);
+  uiStore.setNextMatchExpanded(!collapsed);
 }
 
-const uiStore = useUiStore();
-const dataStore = useRmDataStore();
-const runningMatch = computed(() => {
-  const rows = getScheduleRows(dataStore.schedule, dataStore.liveGameInfo);
-  return getRunningMatch(rows, props.selectedZoneId);
-});
+const { nextMatchExpanded } = storeToRefs(uiStore);
 </script>
 
 <template>
   <div>
     <Card v-if="!uiStore.isMobile">
       <template #content>
-        <!-- <MatchBlock
-          title="当前对局"
-          :match="current"
-          :hero="true"
-          :team-group-map="props.teamGroupMap"
-          start-prefix="开始"
+        <ScheduleItem
+          v-if="runningMatchForSelectedZone"
+          :item="runningMatchForSelectedZone"
           @team-select="onSelectTeam"
-        /> -->
-
-        <ScheduleItem v-if="runningMatch" :item="runningMatch"> </ScheduleItem>
+        />
 
         <Panel
           toggleable
           class="next-panel"
-          :collapsed="!props.nextExpanded"
+          :collapsed="!nextMatchExpanded"
           @update:collapsed="onNextPanelCollapsedChange"
         >
           <template #header>
             <div class="next-header">
               <div class="next-title-wrap">
                 <h3>{{ next ? '下一场对局' : '暂无下一场信息' }}</h3>
-                <small v-if="!props.nextExpanded && nextTeamsLabel" class="next-teams">{{ nextTeamsLabel }}</small>
+                <small v-if="!nextMatchExpanded && nextTeamsLabel" class="next-teams">{{ nextTeamsLabel }}</small>
               </div>
               <Tag v-if="next" :value="next.status" severity="contrast" />
             </div>
@@ -91,14 +77,20 @@ const runningMatch = computed(() => {
             :match="next"
             :compact="true"
             :show-header="false"
-            :team-group-map="props.teamGroupMap"
+            :team-group-map="teamGroupMap"
+            :context-zone-id="selectedZoneId"
+            :context-zone-name="selectedZoneName"
             start-prefix="预计"
             @team-select="onSelectTeam"
           />
         </Panel>
       </template>
     </Card>
-    <ScheduleItem v-else-if="runningMatch" :item="runningMatch"> </ScheduleItem>
+    <ScheduleItem
+      v-else-if="runningMatchForSelectedZone"
+      :item="runningMatchForSelectedZone"
+      @team-select="onSelectTeam"
+    />
   </div>
 </template>
 

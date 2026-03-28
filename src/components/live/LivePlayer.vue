@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { formatStructuredName } from '@/services/danmuView';
+import { DanmuService } from '@/danmu/DanmuService';
 import { useDanmuFilterStore } from '@/stores/danmuFilter';
 import { useUiStore } from '@/stores/ui';
-import { useUserInfoStore } from '@/stores/userInfo';
+import { isIFrame, useUserInfoStore } from '@/stores/userInfo';
 import Artplayer, { Option } from 'artplayer';
 import artplayerPluginChromecast from 'artplayer-plugin-chromecast';
 import artplayerPluginDanmuku, { type Danmu } from 'artplayer-plugin-danmuku';
@@ -12,7 +12,6 @@ import Message from 'primevue/message';
 import ProgressSpinner from 'primevue/progressspinner';
 import { useToast } from 'primevue/usetoast';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
-import { DanmuService } from '../../services/danmuService';
 import type { DanmuAttributes, DanmuMessage } from '../../types/api';
 import DanmuFilterDialog from '../dialogs/DanmuFilterDialog.vue';
 
@@ -83,28 +82,29 @@ async function sendDanmuByRealtime(d: Danmu): Promise<boolean> {
     return false;
   }
 
-  const myAttributes: DanmuAttributes = {
-    nickname: userInfoStore.userInfo.nickname || '',
-    schoolName: userInfoStore.userInfo.school || '',
-    badge: userInfoStore.userInfo.badge?.[0] || '',
-    racingAge: String(userInfoStore.userInfo.racingAge ?? ''),
-    position: userInfoStore.userInfo.role || '',
-    isAdmin: false,
-    username: formatStructuredName({
-      year: userInfoStore.userInfo.racingAge ? `${userInfoStore.userInfo.racingAge}` : '',
-      role: userInfoStore.userInfo.role || '',
-      school: userInfoStore.userInfo.school || '',
-      nickname: userInfoStore.userInfo.nickname || '',
-    }),
-  };
   // const myAttributes: DanmuAttributes = {
   //   nickname: userInfoStore.userInfo.nickname || '',
   //   schoolName: userInfoStore.userInfo.school || '',
   //   badge: userInfoStore.userInfo.badge?.[0] || '',
   //   racingAge: String(userInfoStore.userInfo.racingAge ?? ''),
-  //   role: userInfoStore.userInfo.role || '',
-  //   username: userInfoStore.userInfo.nickname || '匿名用户',
+  //   position: userInfoStore.userInfo.role || '',
+  //   isAdmin: false,
+  //   username: formatStructuredName({
+  //     year: userInfoStore.userInfo.racingAge ? `${userInfoStore.userInfo.racingAge}` : '',
+  //     role: userInfoStore.userInfo.role || '',
+  //     school: userInfoStore.userInfo.school || '',
+  //     nickname: userInfoStore.userInfo.nickname || '',
+  //   }),
   // };
+  const myAttributes: DanmuAttributes = {
+    nickname: 'RM粉丝大管家',
+    schoolName: '',
+    badge: 'admin',
+    racingAge: '',
+    position: 'admin',
+    isAdmin: true,
+    username: 'RM粉丝大管家',
+  };
 
   try {
     await danmuService.value.sendMessage(content, myAttributes);
@@ -309,7 +309,7 @@ async function mountPlayer(url: string) {
       fontSize: 22,
       antiOverlap: true,
       synchronousPlayback: false,
-      emitter: true,
+      emitter: isIFrame,
       filter: danmuFilterStore.matchTrackDanmu,
       beforeEmit: sendDanmuByRealtime,
     }),

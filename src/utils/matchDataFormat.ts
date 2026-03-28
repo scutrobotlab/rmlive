@@ -1,4 +1,10 @@
-import type { GroupRankRow, GroupRankSection } from './groupRankView';
+import type { GroupRankInfo } from '../types/api';
+import {
+  resolveGroupRankSectionByGroup,
+  resolveGroupRankSectionByTeam,
+  type GroupRankRow,
+  type GroupRankSection,
+} from './groupRankView';
 import type { GroupSection } from './groupView';
 
 export interface DialogTeamRow {
@@ -96,4 +102,40 @@ export function sortDialogRankRows(rows: DialogRankRow[]): DialogRankRowDisplay[
     ...row,
     rankDisplay: row.rank > 0 ? row.rank : index + 1,
   }));
+}
+
+export interface GroupRankPanelModel {
+  hasSection: boolean;
+  title: string;
+  rows: DialogRankRowDisplay[];
+}
+
+export function buildGroupRankPanelModel(
+  selectedTeam: string | null,
+  selectedZoneId: string | null,
+  selectedZoneName: string | null,
+  groupSections: GroupSection[],
+  groupRankInfo: GroupRankInfo | null,
+): GroupRankPanelModel {
+  const teamGroupSection = findDialogTeamGroupSection(groupSections, selectedTeam);
+  const teamRows = buildDialogTeamRows(teamGroupSection, selectedTeam);
+
+  const byGroup = resolveGroupRankSectionByGroup(
+    groupRankInfo,
+    selectedZoneId,
+    selectedZoneName,
+    teamGroupSection?.group ?? null,
+  );
+
+  const rankSection =
+    byGroup ||
+    resolveGroupRankSectionByTeam(groupRankInfo, selectedZoneId, selectedZoneName, selectedTeam);
+
+  const rows = sortDialogRankRows(buildDialogRankRows(rankSection, teamRows, selectedTeam));
+
+  return {
+    hasSection: Boolean(rankSection || teamGroupSection),
+    title: rankSection?.groupName ?? teamGroupSection?.group ?? '当前组',
+    rows,
+  };
 }

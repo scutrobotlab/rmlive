@@ -1,8 +1,8 @@
 import { useLocalStorage } from '@vueuse/core';
 import { v4 as uuid } from 'uuid';
 import type { DanmuAttributes, DanmuMessage } from '../types/api';
-import { fetchJson } from './http';
-import { buildLiveJsonUrl } from './urlProxy';
+import { fetchJson } from '../api/http';
+import { buildLiveJsonUrl } from '../utils/urlProxy';
 
 const APP_ID = import.meta.env.VITE_CHATROOM_APP_ID as string;
 const APP_KEY = import.meta.env.VITE_CHATROOM_APP_KEY as string;
@@ -110,7 +110,6 @@ export class DanmuService {
 
       this.conversationInstance = await (imClient as any).getConversation(chatRoomId, true);
 
-      // 关键：加入会话，不加入可能收不到下行消息。
       if (this.conversationInstance?.join) {
         await this.conversationInstance.join();
       } else {
@@ -126,14 +125,12 @@ export class DanmuService {
         this.handleRawMessage(message, TextMessage, 'realtime');
       };
 
-      // LeanCloud 推荐事件常量监听
       const EventConst = (await import('leancloud-realtime')).Event;
       if (EventConst?.MESSAGE) {
         this.eventConstMessageName = String(EventConst.MESSAGE);
         this.conversationInstance.on(this.eventConstMessageName, this.messageHandler);
       }
 
-      // 兼容兜底
       this.conversationInstance.on('message', this.messageHandler);
 
       this.errorHandler = (error: unknown) => {
@@ -184,7 +181,6 @@ export class DanmuService {
       return;
     }
 
-    // 兼容参考页面里的消息结构：content._lctext / content._lcattrs
     const content = message?.content;
     const rawText = content?._lctext ?? content?.text ?? '';
     const rawAttrs = content?._lcattrs ?? message?.attributes ?? {};
@@ -206,7 +202,6 @@ export class DanmuService {
 
   private toTimestamp(value: unknown): number {
     const normalizeEpoch = (epoch: number): number => {
-      // Some upstream fields are in seconds; normalize to milliseconds for consistent ordering/display.
       return Math.abs(epoch) < 1_000_000_000_000 ? epoch * 1000 : epoch;
     };
 

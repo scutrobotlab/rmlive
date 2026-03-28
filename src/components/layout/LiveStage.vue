@@ -1,30 +1,28 @@
 <script setup lang="ts">
+import { useRmDataStore } from '@/stores/rmData';
+import { useUiStore } from '@/stores/ui';
 import { Fieldset } from 'primevue';
 import Splitter from 'primevue/splitter';
 import SplitterPanel from 'primevue/splitterpanel';
+import { storeToRefs } from 'pinia';
 import { defineAsyncComponent } from 'vue';
 import type { DanmuMessage } from '../../types/api';
 
-interface PlayerQualityOption {
-  label: string;
-  value: string;
-  src: string;
-}
+const dataStore = useRmDataStore();
+const uiStore = useUiStore();
 
-interface Props {
-  isMobile: boolean;
-  streamUrl: string | null;
-  loading: boolean;
-  errorMessage: string;
-  qualityOptions: PlayerQualityOption[];
-  selectedQualityRes: string | null;
-  chatRoomId: string | null;
-}
+const {
+  effectiveStreamUrl,
+  streamLoading,
+  effectiveStreamErrorMessage,
+  playerQualityOptions,
+  selectedQualityRes,
+  selectedZoneChatRoomId,
+} = storeToRefs(dataStore);
 
-defineProps<Props>();
+const { isMobile } = storeToRefs(uiStore);
 
 const emit = defineEmits<{
-  retry: [];
   danmu: [msg: DanmuMessage];
 }>();
 
@@ -32,7 +30,7 @@ const LivePlayer = defineAsyncComponent(() => import('../live/LivePlayer.vue'));
 const DanmuPanel = defineAsyncComponent(() => import('../danmu/DanmuPanel.vue'));
 
 function onRetry() {
-  emit('retry');
+  void dataStore.retryLiveStream();
 }
 
 function onDanmu(msg: DanmuMessage) {
@@ -46,12 +44,12 @@ function onDanmu(msg: DanmuMessage) {
       <SplitterPanel :size="75" :minSize="50">
         <div class="live-column">
           <LivePlayer
-            :stream-url="streamUrl"
-            :loading="loading"
-            :error-message="errorMessage"
-            :quality-options="qualityOptions"
+            :stream-url="effectiveStreamUrl"
+            :loading="streamLoading"
+            :error-message="effectiveStreamErrorMessage"
+            :quality-options="playerQualityOptions"
             :selected-quality-res="selectedQualityRes"
-            :chat-room-id="chatRoomId"
+            :chat-room-id="selectedZoneChatRoomId"
             @retry="onRetry"
             @danmu="onDanmu"
           />
@@ -65,12 +63,12 @@ function onDanmu(msg: DanmuMessage) {
 
     <div v-else class="live-column">
       <LivePlayer
-        :stream-url="streamUrl"
-        :loading="loading"
-        :error-message="errorMessage"
-        :quality-options="qualityOptions"
+        :stream-url="effectiveStreamUrl"
+        :loading="streamLoading"
+        :error-message="effectiveStreamErrorMessage"
+        :quality-options="playerQualityOptions"
         :selected-quality-res="selectedQualityRes"
-        :chat-room-id="chatRoomId"
+        :chat-room-id="selectedZoneChatRoomId"
         @retry="onRetry"
         @danmu="onDanmu"
       />

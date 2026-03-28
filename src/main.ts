@@ -8,6 +8,7 @@ import { createApp } from 'vue';
 import App from './App.vue';
 
 import './styles/primevue-theme.css';
+import './styles/mobile-input.css';
 const app = createApp(App);
 app.use(createPinia());
 

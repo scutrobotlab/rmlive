@@ -66,13 +66,3 @@ defineProps<{
   }
 }
 </style>
-<style>
-@media (max-width: 768px) {
-  /* 防止iOS输入focus放大：提升MultiSelect输入字体 */
-  .p-multiselect,
-  .p-multiselect .p-multiselect-label,
-  .p-multiselect .p-inputtext {
-    font-size: 16px !important;
-  }
-}
-</style>

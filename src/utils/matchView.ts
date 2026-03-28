@@ -1,4 +1,4 @@
-import type { LiveGameInfo, LiveZone, ReplayVideoEntry, Schedule } from '../types/api';
+import type { CurrentAndNextMatches, LiveGameInfo, LiveZone, ReplayVideoEntry, Schedule } from '../types/api';
 import { formatFriendlyDateTime } from './timeFormat';
 
 export interface ReplayVideoInfo {
@@ -7,38 +7,203 @@ export interface ReplayVideoInfo {
   coverUrl: string;
 }
 
+export interface TeamView {
+  teamName: string;
+  collegeName: string;
+  logo: string;
+}
+
+/** Unified match row: current/next API and schedule API share core fields; list-only fields optional. */
+export interface MatchView {
+  blueTeam: TeamView;
+  redTeam: TeamView;
+  score: string;
+  /** Schedule rows: Chinese label from `toStatusLabel`. Current/next snapshot: raw API status. */
+  status: string;
+  stage: string;
+  slug: string;
+  orderNumber: string;
+  startAt: string;
+
+  id?: string;
+  date?: string;
+  time?: string;
+  dateTimeLabel?: string;
+  startedAtTs?: number;
+  statusRaw?: string;
+  replayVideo?: ReplayVideoInfo | null;
+  planGameCount?: number;
+  zoneId?: string;
+  zoneName?: string;
+  eventTitle?: string;
+}
+
 export interface ScheduleSchoolOption {
   label: string;
   value: string;
 }
 
-export interface ScheduleRowItem {
-  id: string;
-  slug: string;
-  orderNumber: string;
-  date: string;
-  time: string;
-  dateTimeLabel: string;
-  startedAtTs: number;
-  stage: string;
-  redTeam: {
-    teamName: string;
-    collegeName: string;
-    logo: string;
+function toStringValue(value: unknown, fallback = '-') {
+  const str = String(value ?? '').trim();
+  return str.length ? str : fallback;
+}
+
+function normalizeZoneId(value: unknown): string {
+  const raw = String(value ?? '').trim();
+  if (!raw) {
+    return '';
+  }
+
+  const numeric = Number(raw);
+  if (Number.isFinite(numeric)) {
+    return String(numeric);
+  }
+
+  return raw;
+}
+
+export function toBuckets(payload: CurrentAndNextMatches | null): Record<string, unknown>[] {
+  if (!payload) {
+    return [];
+  }
+
+  if (Array.isArray(payload)) {
+    return payload as Record<string, unknown>[];
+  }
+
+  const record = payload as Record<string, unknown>;
+  const candidates = [record.data, record.list, record.records];
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      return candidate as Record<string, unknown>[];
+    }
+  }
+
+  return [record];
+}
+
+export function resolvePayloadByZone(
+  payload: CurrentAndNextMatches | null,
+  selectedZoneId: string | null,
+  selectedZoneName: string | null,
+): Record<string, unknown> | null {
+  const buckets = toBuckets(payload);
+  if (!buckets.length) {
+    return null;
+  }
+
+  const normalizedId = normalizeZoneId(selectedZoneId);
+  const normalizedName = String(selectedZoneName ?? '').trim();
+
+  function extractZone(item: Record<string, unknown>): Record<string, unknown> | undefined {
+    const topLevel = item.zone as Record<string, unknown> | undefined;
+    if (topLevel) {
+      return topLevel;
+    }
+
+    const currentMatch = item.currentMatch as Record<string, unknown> | undefined;
+    const nextMatch = item.nextMatch as Record<string, unknown> | undefined;
+
+    return (
+      (currentMatch?.zone as Record<string, unknown> | undefined) ??
+      (nextMatch?.zone as Record<string, unknown> | undefined)
+    );
+  }
+
+  const matchedById = buckets.find((item) => {
+    if (!item || typeof item !== 'object') {
+      return false;
+    }
+
+    const record = item as Record<string, unknown>;
+    const zone = extractZone(record);
+    const zoneIdCandidates = [zone?.id, zone?.zoneId, (item as Record<string, unknown>).zoneId];
+    return zoneIdCandidates.some((candidate) => normalizeZoneId(candidate) === normalizedId);
+  });
+
+  if (matchedById) {
+    return matchedById;
+  }
+
+  const matchedByName = buckets.find((item) => {
+    if (!item || typeof item !== 'object') {
+      return false;
+    }
+
+    const record = item as Record<string, unknown>;
+    const zone = extractZone(record);
+    const zoneNameCandidates = [zone?.name, zone?.zoneName, (item as Record<string, unknown>).zoneName];
+    return zoneNameCandidates.some((candidate) => {
+      const value = String(candidate ?? '').trim();
+      return value.length > 0 && (value === normalizedName || normalizedName.includes(value));
+    });
+  });
+
+  if (matchedByName) {
+    return matchedByName;
+  }
+
+  if (normalizedId || normalizedName) {
+    const firstWithMatch = buckets.find((item) => {
+      const current = item.currentMatch as Record<string, unknown> | undefined;
+      const next = item.nextMatch as Record<string, unknown> | undefined;
+      return Boolean(current || next);
+    });
+    return firstWithMatch ?? buckets[0];
+  }
+
+  return buckets[0];
+}
+
+/** Normalize a single match object from current/next (or embedded) API shape. */
+export function toMatchView(data: unknown): MatchView | null {
+  if (!data || typeof data !== 'object') {
+    return null;
+  }
+
+  const asRecord = data as Record<string, unknown>;
+  const blueSide = asRecord.blueSide as Record<string, unknown> | undefined;
+  const redSide = asRecord.redSide as Record<string, unknown> | undefined;
+  const bluePlayer = blueSide?.player as Record<string, unknown> | undefined;
+  const redPlayer = redSide?.player as Record<string, unknown> | undefined;
+  const blueTeam = bluePlayer?.team as Record<string, unknown> | undefined;
+  const redTeam = redPlayer?.team as Record<string, unknown> | undefined;
+
+  const blueSideWinGameCount = Number(asRecord.blueSideWinGameCount ?? 0);
+  const redSideWinGameCount = Number(asRecord.redSideWinGameCount ?? 0);
+
+  return {
+    blueTeam: {
+      teamName: toStringValue(blueTeam?.name),
+      collegeName: toStringValue(blueTeam?.collegeName),
+      logo: toStringValue(blueTeam?.collegeLogo, ''),
+    },
+    redTeam: {
+      teamName: toStringValue(redTeam?.name),
+      collegeName: toStringValue(redTeam?.collegeName),
+      logo: toStringValue(redTeam?.collegeLogo, ''),
+    },
+    score: `${redSideWinGameCount} : ${blueSideWinGameCount}`,
+    status: toStringValue(asRecord.status),
+    stage: toStringValue(asRecord.matchType),
+    slug: toStringValue(asRecord.slug),
+    orderNumber: toStringValue(asRecord.orderNumber),
+    startAt: formatFriendlyDateTime(asRecord.planStartedAt),
   };
-  blueTeam: {
-    teamName: string;
-    collegeName: string;
-    logo: string;
-  };
-  score: string;
-  statusRaw: string;
-  status: string;
-  replayVideo: ReplayVideoInfo | null;
-  planGameCount: number;
-  zoneId: string;
-  zoneName: string;
-  eventTitle: string;
+}
+
+export function getCurrentFocusTeams(
+  payload: CurrentAndNextMatches | null,
+  selectedZoneId: string | null,
+  selectedZoneName: string | null,
+): string[] {
+  const zonePayload = resolvePayloadByZone(payload, selectedZoneId, selectedZoneName);
+  const current = toMatchView(zonePayload?.currentMatch);
+  if (!current) {
+    return [];
+  }
+
+  return [current.redTeam.teamName, current.blueTeam.teamName].filter((team) => team && team !== '-');
 }
 
 export function toStatusLabel(status: string): string {
@@ -80,7 +245,7 @@ function toSortedUniqueValues(values: Set<string>): string[] {
   return Array.from(values).sort((a, b) => a.localeCompare(b, 'zh-CN'));
 }
 
-function collectUniqueNames(rows: ScheduleRowItem[], resolvers: Array<(item: ScheduleRowItem) => string>): Set<string> {
+function collectUniqueNames(rows: MatchView[], resolvers: Array<(item: MatchView) => string>): Set<string> {
   const values = new Set<string>();
 
   for (const item of rows) {
@@ -95,7 +260,7 @@ function collectUniqueNames(rows: ScheduleRowItem[], resolvers: Array<(item: Sch
   return values;
 }
 
-export function getScheduleSchoolOptions(rows: ScheduleRowItem[]): ScheduleSchoolOption[] {
+export function getScheduleSchoolOptions(rows: MatchView[]): ScheduleSchoolOption[] {
   return toSortedUniqueValues(
     collectUniqueNames(rows, [
       (item) => normalizeSchoolName(item.redTeam.collegeName),
@@ -104,7 +269,7 @@ export function getScheduleSchoolOptions(rows: ScheduleRowItem[]): ScheduleSchoo
   ).map((name) => ({ label: name, value: name }));
 }
 
-export function filterScheduleRowsBySchool(rows: ScheduleRowItem[], schoolName: string | null): ScheduleRowItem[] {
+export function filterScheduleRowsBySchool(rows: MatchView[], schoolName: string | null): MatchView[] {
   const target = normalizeSchoolName(schoolName ?? '');
   if (!target) {
     return rows;
@@ -220,7 +385,7 @@ function buildReplayMap(data: LiveGameInfo | null): Map<string, ReplayVideoInfo>
   }, new Map<string, ReplayVideoInfo>());
 }
 
-export function getScheduleRows(data: Schedule | null, liveGameInfo?: LiveGameInfo | null): ScheduleRowItem[] {
+export function getScheduleRows(data: Schedule | null, liveGameInfo?: LiveGameInfo | null): MatchView[] {
   const zones = getZones(data);
   if (!zones.length) {
     return [];
@@ -229,9 +394,8 @@ export function getScheduleRows(data: Schedule | null, liveGameInfo?: LiveGameIn
   const replayMap = buildReplayMap(liveGameInfo ?? null);
   const eventTitle = getScheduleEventTitle(data);
 
-  const allItems: ScheduleRowItem[] = [];
+  const allItems: MatchView[] = [];
 
-  // Iterate through ALL zones and aggregate matches
   zones.forEach((zone) => {
     if (!zone || typeof zone !== 'object') {
       return;
@@ -280,7 +444,7 @@ export function getScheduleRows(data: Schedule | null, liveGameInfo?: LiveGameIn
       const matchId = String(match.id ?? '-');
       const planGameCount = Number(match.planGameCount ?? 0);
 
-      const rowItem: ScheduleRowItem = {
+      const rowItem: MatchView = {
         id: matchId,
         slug: String(match.slug ?? '-'),
         orderNumber: String(match.orderNumber ?? '-'),
@@ -307,6 +471,7 @@ export function getScheduleRows(data: Schedule | null, liveGameInfo?: LiveGameIn
         zoneId: zoneId || '-',
         zoneName: zoneName || '未分配站点',
         eventTitle,
+        startAt: formatFriendlyDateTime(planStartedAt),
       };
 
       allItems.push(rowItem);
@@ -337,11 +502,11 @@ export interface ScheduleTeamOption {
 export interface ScheduleDateGroup {
   date: string;
   dateLabel: string;
-  items: ScheduleRowItem[];
+  items: MatchView[];
 }
 
-function toDateGroupKey(item: ScheduleRowItem): string {
-  if (item.startedAtTs > 0) {
+function toDateGroupKey(item: MatchView): string {
+  if (item.startedAtTs && item.startedAtTs > 0) {
     const d = new Date(item.startedAtTs);
     if (!Number.isNaN(d.getTime())) {
       const y = d.getFullYear();
@@ -363,7 +528,7 @@ function toDateGroupKey(item: ScheduleRowItem): string {
   return 'unknown';
 }
 
-export function filterScheduleRowsByTeam(rows: ScheduleRowItem[], teamName: string | null): ScheduleRowItem[] {
+export function filterScheduleRowsByTeam(rows: MatchView[], teamName: string | null): MatchView[] {
   const target = normalizeTeamName(teamName ?? '');
   if (!target) {
     return rows;
@@ -377,7 +542,7 @@ export function filterScheduleRowsByTeam(rows: ScheduleRowItem[], teamName: stri
   });
 }
 
-export function filterScheduleRowsByZone(rows: ScheduleRowItem[], zoneId: string | null): ScheduleRowItem[] {
+export function filterScheduleRowsByZone(rows: MatchView[], zoneId: string | null): MatchView[] {
   const target = String(zoneId ?? '').trim();
   if (!target) {
     return rows;
@@ -386,13 +551,13 @@ export function filterScheduleRowsByZone(rows: ScheduleRowItem[], zoneId: string
   return rows.filter((item) => String(item.zoneId ?? '') === target);
 }
 
-export function getZoneNameOptions(rows: ScheduleRowItem[]): ScheduleZoneOption[] {
+export function getZoneNameOptions(rows: MatchView[]): ScheduleZoneOption[] {
   const zoneMap = new Map<string, ScheduleZoneOption>();
   rows.forEach((item) => {
     const zoneName = String(item.zoneName ?? '').trim();
-    const zoneId = String(item.zoneId ?? '').trim();
+    const zid = String(item.zoneId ?? '').trim();
     if (zoneName && zoneName !== '-') {
-      const key = zoneId || zoneName;
+      const key = zid || zoneName;
       if (!zoneMap.has(key)) {
         zoneMap.set(key, {
           label: zoneName,
@@ -405,7 +570,7 @@ export function getZoneNameOptions(rows: ScheduleRowItem[]): ScheduleZoneOption[
   return Array.from(zoneMap.values()).sort((a, b) => a.label.localeCompare(b.label, 'zh-CN'));
 }
 
-export function getTeamNameOptions(rows: ScheduleRowItem[]): ScheduleTeamOption[] {
+export function getTeamNameOptions(rows: MatchView[]): ScheduleTeamOption[] {
   return toSortedUniqueValues(
     collectUniqueNames(rows, [
       (item) => normalizeTeamName(item.redTeam.teamName),
@@ -414,7 +579,7 @@ export function getTeamNameOptions(rows: ScheduleRowItem[]): ScheduleTeamOption[
   ).map((name) => ({ label: name, value: name }));
 }
 
-export function getSchoolTeamOptions(rows: ScheduleRowItem[]): ScheduleTeamOption[] {
+export function getSchoolTeamOptions(rows: MatchView[]): ScheduleTeamOption[] {
   const teamSchoolMap = new Map<string, string>();
 
   for (const item of rows) {
@@ -449,22 +614,23 @@ export function getSchoolTeamOptions(rows: ScheduleRowItem[]): ScheduleTeamOptio
     .sort((a, b) => a.label.localeCompare(b.label, 'zh-CN'));
 }
 
-export function getRecentMatches(rows: ScheduleRowItem[], zoneId: string | null, limit = 5): ScheduleRowItem[] {
+export function getRecentMatches(rows: MatchView[], zoneId: string | null, limit = 5): MatchView[] {
   const zoneRows = filterScheduleRowsByZone(rows, zoneId);
 
-  const completed: ScheduleRowItem[] = [];
-  const upcoming: ScheduleRowItem[] = [];
+  const completed: MatchView[] = [];
+  const upcoming: MatchView[] = [];
 
   for (const item of zoneRows) {
-    if (isResultStatus(item.statusRaw)) {
+    const raw = item.statusRaw ?? '';
+    if (isResultStatus(raw)) {
       completed.push(item);
     } else {
       upcoming.push(item);
     }
   }
 
-  completed.sort((a, b) => b.startedAtTs - a.startedAtTs);
-  upcoming.sort((a, b) => a.startedAtTs - b.startedAtTs);
+  completed.sort((a, b) => (b.startedAtTs ?? 0) - (a.startedAtTs ?? 0));
+  upcoming.sort((a, b) => (a.startedAtTs ?? 0) - (b.startedAtTs ?? 0));
 
   const completedCount = Math.min(2, completed.length);
   const upcomingCount = Math.min(limit - completedCount, upcoming.length);
@@ -472,11 +638,12 @@ export function getRecentMatches(rows: ScheduleRowItem[], zoneId: string | null,
   return [...completed.slice(0, completedCount), ...upcoming.slice(0, upcomingCount)];
 }
 
-export function getRunningMatch(rows: ScheduleRowItem[], zoneId: string | null): ScheduleRowItem | null {
+export function getRunningMatch(rows: MatchView[], zoneId: string | null): MatchView | null {
   const zoneRows = filterScheduleRowsByZone(rows, zoneId);
 
   for (const item of zoneRows) {
-    if (item.statusRaw.toUpperCase() === 'STARTED') {
+    const raw = String(item.statusRaw ?? '').toUpperCase();
+    if (raw === 'STARTED') {
       return item;
     }
   }
@@ -493,8 +660,8 @@ function toDateKeyTimestamp(dateKey: string): number {
   return Number.isNaN(ts) ? Number.POSITIVE_INFINITY : ts;
 }
 
-export function groupScheduleRowsByDate(rows: ScheduleRowItem[], order: 'asc' | 'desc' = 'asc'): ScheduleDateGroup[] {
-  const groups = new Map<string, ScheduleRowItem[]>();
+export function groupScheduleRowsByDate(rows: MatchView[], order: 'asc' | 'desc' = 'asc'): ScheduleDateGroup[] {
+  const groups = new Map<string, MatchView[]>();
 
   rows.forEach((item) => {
     const dateKey = toDateGroupKey(item);

@@ -108,7 +108,6 @@ export function toZoneOptionItem(zone: LiveZoneLike, nowEpoch: number): ZoneOpti
     };
   }
 
-  // ended
   return {
     label: zone.zoneName,
     value: zone.zoneId,

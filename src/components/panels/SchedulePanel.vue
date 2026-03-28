@@ -1,31 +1,26 @@
 <script setup lang="ts">
-import Card from 'primevue/card';
-import Tab from 'primevue/tab';
-import TabList from 'primevue/tablist';
-import TabPanel from 'primevue/tabpanel';
-import TabPanels from 'primevue/tabpanels';
-import Tabs from 'primevue/tabs';
-import { computed, ref, watch } from 'vue';
+import { useRmDataStore } from '@/stores/rmData';
+import { useUiStore } from '@/stores/ui';
+import type { TeamSelectPayload } from '@/types/teamSelect';
 import {
   getRecentMatches,
   getScheduleRows,
   getSchoolTeamOptions,
   getZoneNameOptions,
   isResultStatus,
-} from '../../services/scheduleView';
-import type { LiveGameInfo, Schedule } from '../../types/api';
+} from '@/utils/matchView';
+import Card from 'primevue/card';
+import Tab from 'primevue/tab';
+import TabList from 'primevue/tablist';
+import TabPanel from 'primevue/tabpanel';
+import TabPanels from 'primevue/tabpanels';
+import Tabs from 'primevue/tabs';
+import { storeToRefs } from 'pinia';
+import { computed, nextTick, ref, watch } from 'vue';
 import ScheduleList from './ScheduleList.vue';
 import ScheduleListFilter from './ScheduleListFilter.vue';
 
-interface TeamSelectPayload {
-  teamName: string;
-  zoneId?: string | null;
-  zoneName?: string | null;
-}
-
 interface Props {
-  payload: Schedule | null;
-  liveGameInfo: LiveGameInfo | null;
   selectedZoneId: string | null;
   teamGroupMap?: Record<string, { group: string; rank: string }>;
   isMobile?: boolean;
@@ -39,8 +34,11 @@ const emit = defineEmits<{
   teamSelect: [payload: TeamSelectPayload];
 }>();
 
-// Get all schedule rows across all zones
-const rows = computed(() => getScheduleRows(props.payload, props.liveGameInfo));
+const dataStore = useRmDataStore();
+const uiStore = useUiStore();
+const { schedule, liveGameInfo } = storeToRefs(dataStore);
+
+const rows = computed(() => getScheduleRows(schedule.value, liveGameInfo.value));
 
 // Tab selection
 const activeTab = ref<'recent' | 'schedule' | 'result'>('recent');
@@ -76,18 +74,15 @@ const filteredRows = computed(() => applyFilters(rows.value));
 
 // Compute schedule rows (upcoming)
 const scheduleRows = computed(() => {
-  const filtered = filteredRows.value.filter((item) => !isResultStatus(item.statusRaw));
+  const filtered = filteredRows.value.filter((item) => !isResultStatus(item.statusRaw ?? ''));
 
-  // Sort by start time ascending
-  return filtered.slice().sort((a, b) => a.startedAtTs - b.startedAtTs);
+  return filtered.slice().sort((a, b) => (a.startedAtTs ?? 0) - (b.startedAtTs ?? 0));
 });
 
-// Compute result rows (completed)
 const resultRows = computed(() => {
-  const filtered = filteredRows.value.filter((item) => isResultStatus(item.statusRaw));
+  const filtered = filteredRows.value.filter((item) => isResultStatus(item.statusRaw ?? ''));
 
-  // Sort by start time descending (newest first)
-  return filtered.slice().sort((a, b) => b.startedAtTs - a.startedAtTs);
+  return filtered.slice().sort((a, b) => (b.startedAtTs ?? 0) - (a.startedAtTs ?? 0));
 });
 
 // Watch team options and reset selection if it becomes invalid
@@ -102,10 +97,30 @@ watch(zoneOptions, (options) => {
   selectedZone.value = selectedZone.value.filter((value) => validValues.has(value));
 });
 
+watch(
+  () => uiStore.schedulePanelIntent,
+  (intent) => {
+    if (!intent) {
+      return;
+    }
+    selectedTeam.value = [...intent.teamNames];
+    selectedZone.value = [...intent.zoneIds];
+    activeTab.value = intent.tab;
+    nextTick(() => {
+      document.getElementById('rm-schedule-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      uiStore.clearSchedulePanelIntent();
+    });
+  },
+);
+
 // Auto-switch tab if current tab becomes empty
 watch(
   () => [scheduleRows.value.length, resultRows.value.length, recentMatches.value.length] as const,
   ([scheduleCount, resultCount, recentCount]) => {
+    if (uiStore.consumeSuppressScheduleAutoTabOnce()) {
+      return;
+    }
+
     if (activeTab.value === 'recent' && recentCount === 0 && (scheduleCount > 0 || resultCount > 0)) {
       activeTab.value = 'schedule';
       return;

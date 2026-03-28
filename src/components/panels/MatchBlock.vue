@@ -1,12 +1,15 @@
 <script setup lang="ts">
+import type { TeamSelectPayload } from '@/types/teamSelect';
+import type { MatchView } from '@/utils/matchView';
 import Tag from 'primevue/tag';
-import type { MatchView } from '../../services/matchView';
 import TeamInfoCard from '../common/TeamInfoCard.vue';
 
 interface Props {
   title: string;
   match: MatchView | null;
   teamGroupMap?: Record<string, { group: string; rank: string }>;
+  contextZoneId?: string | null;
+  contextZoneName?: string | null;
   compact?: boolean;
   hero?: boolean;
   startPrefix?: string;
@@ -14,6 +17,8 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  contextZoneId: null,
+  contextZoneName: null,
   compact: false,
   hero: false,
   startPrefix: '开始',
@@ -21,11 +26,15 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<{
-  teamSelect: [teamName: string];
+  teamSelect: [payload: TeamSelectPayload];
 }>();
 
-function onSelectTeam(teamName: string) {
-  emit('teamSelect', teamName);
+function onSelectTeam(payload: TeamSelectPayload) {
+  emit('teamSelect', {
+    ...payload,
+    zoneId: payload.zoneId ?? props.contextZoneId ?? null,
+    zoneName: payload.zoneName ?? props.contextZoneName ?? null,
+  });
 }
 
 function toGroupLabel(teamName: string): string {
@@ -64,6 +73,8 @@ function showSlug(slug: string): boolean {
             :college-name="match.redTeam.collegeName"
             :logo="match.redTeam.logo"
             :group-label="toGroupLabel(match.redTeam.teamName)"
+            :zone-id="contextZoneId"
+            :zone-name="contextZoneName"
             @select="onSelectTeam"
           />
         </div>
@@ -75,6 +86,8 @@ function showSlug(slug: string): boolean {
             :college-name="match.blueTeam.collegeName"
             :logo="match.blueTeam.logo"
             :group-label="toGroupLabel(match.blueTeam.teamName)"
+            :zone-id="contextZoneId"
+            :zone-name="contextZoneName"
             @select="onSelectTeam"
           />
         </div>

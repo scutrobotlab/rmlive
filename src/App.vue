@@ -1,63 +1,32 @@
 <script setup lang="ts">
-import { storeToRefs } from 'pinia';
-import Toast from 'primevue/toast';
-import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref } from 'vue';
-import TopToolbar from './components/header/TopToolbar.vue';
-import LiveStage from './components/layout/LiveStage.vue';
-import ScheduleArea from './components/layout/ScheduleArea.vue';
-import CurrentMatchPanel from './components/panels/CurrentMatchPanel.vue';
-import { resolveZoneChatRoomId } from './services/chatRoomView';
-import { bindDanmuRoomReset } from './services/danmuLifecycle';
-import { scheduleDeferredMount } from './services/deferredMount';
-import { toPlayerQualityOptions } from './services/rmStreamView';
-import { getScheduleEventTitle } from './services/scheduleView';
+import { bindDanmuRoomReset } from './composables/danmuLifecycle';
+import { scheduleDeferredMount } from './composables/deferredMount';
+import type { TeamSelectPayload } from './types/teamSelect';
 import { useDanmuStore } from './stores/danmu';
 import { useRmDataStore } from './stores/rmData';
 import { useUiStore } from './stores/ui';
 import type { DanmuMessage } from './types/api';
+import { storeToRefs } from 'pinia';
+import Toast from 'primevue/toast';
+import { defineAsyncComponent, onBeforeUnmount, onMounted, ref } from 'vue';
+import TopToolbar from './components/header/TopToolbar.vue';
+import LiveStage from './components/layout/LiveStage.vue';
+import ScheduleArea from './components/layout/ScheduleArea.vue';
+import CurrentMatchPanel from './components/panels/CurrentMatchPanel.vue';
 
-interface TeamSelectPayload {
-  teamName: string;
-  zoneId?: string | null;
-  zoneName?: string | null;
-}
-
-const MatchDataDialog = defineAsyncComponent(() => import('./components/dialogs/MatchDataDialog.vue'));
+const TeamInfoDialog = defineAsyncComponent(() => import('./components/dialogs/TeamInfoDialog.vue'));
 
 const dataStore = useRmDataStore();
 const danmuStore = useDanmuStore();
 const uiStore = useUiStore();
 
-const {
-  currentAndNextMatches,
-  robotData,
-  schedule,
-  groupRankInfo,
-  selectedZone,
-  selectedZoneId,
-  selectedQualityRes,
-  streamLoading,
-  effectiveStreamUrl,
-  effectiveStreamErrorMessage,
-  selectedZoneName,
-  zoneOptions,
-  teamGroupMap,
-  groupSections,
-  liveGameInfo,
-} = storeToRefs(dataStore);
+const { selectedZoneChatRoomId } = storeToRefs(dataStore);
 
-const { isDark, isMobile, nextMatchExpanded } = storeToRefs(uiStore);
 const dataDialogVisible = ref(false);
 const dataDialogTeam = ref<string | null>(null);
+const dataDialogCollege = ref<string | null>(null);
 const dataDialogZoneId = ref<string | null>(null);
 const dataDialogZoneName = ref<string | null>(null);
-
-const playerQualityOptions = computed(() => toPlayerQualityOptions(selectedZone.value));
-const scheduleEventTitle = computed(() => getScheduleEventTitle(schedule.value));
-
-const selectedZoneChatRoomId = computed(() =>
-  resolveZoneChatRoomId(liveGameInfo.value, selectedZoneId.value, selectedZoneName.value),
-);
 
 function onDanmuReceived(msg: DanmuMessage) {
   danmuStore.addMessage(msg);
@@ -65,11 +34,6 @@ function onDanmuReceived(msg: DanmuMessage) {
 
 bindDanmuRoomReset(selectedZoneChatRoomId, danmuStore.clearMessages);
 
-const onZoneChange = dataStore.setZone;
-const retryLiveStream = dataStore.retryLiveStream;
-const onThemeChange = uiStore.setDarkMode;
-
-const onNextExpandedChange = uiStore.setNextMatchExpanded;
 const enableSecondaryPanels = ref(false);
 
 function onOpenTeamData(payload: string | TeamSelectPayload) {
@@ -79,10 +43,12 @@ function onOpenTeamData(payload: string | TeamSelectPayload) {
   }
 
   dataDialogTeam.value = teamName;
+  dataDialogCollege.value = typeof payload === 'string' ? null : (payload.collegeName ?? null);
+  const { selectedZoneId, selectedZoneName } = dataStore;
   dataDialogZoneId.value =
-    typeof payload === 'string' ? selectedZoneId.value : (payload.zoneId ?? selectedZoneId.value);
+    typeof payload === 'string' ? selectedZoneId : (payload.zoneId ?? selectedZoneId);
   dataDialogZoneName.value =
-    typeof payload === 'string' ? selectedZoneName.value : (payload.zoneName ?? selectedZoneName.value);
+    typeof payload === 'string' ? selectedZoneName : (payload.zoneName ?? selectedZoneName);
   dataDialogVisible.value = true;
 }
 
@@ -108,61 +74,23 @@ onBeforeUnmount(() => {
 <template>
   <main class="app-shell">
     <Toast position="top-right" />
-    <TopToolbar
-      :is-mobile="isMobile"
-      :is-dark="isDark"
-      :schedule-event-title="scheduleEventTitle"
-      :selected-zone-id="selectedZoneId"
-      :zone-options="zoneOptions"
-      @zone-change="onZoneChange"
-      @theme-change="onThemeChange"
-    />
+    <TopToolbar />
 
     <section class="match-hero">
-      <CurrentMatchPanel
-        :key="selectedZoneId ?? 'zone-empty'"
-        :payload="currentAndNextMatches"
-        :selected-zone-id="selectedZoneId"
-        :selected-zone-name="selectedZoneName"
-        :selected-zone-live-state="selectedZone?.liveState ?? null"
-        :next-expanded="nextMatchExpanded"
-        :team-group-map="teamGroupMap"
-        @team-select="onOpenTeamData"
-        @update-next-expanded="onNextExpandedChange"
-      />
+      <CurrentMatchPanel :key="dataStore.selectedZoneId ?? 'zone-empty'" @team-select="onOpenTeamData" />
     </section>
 
-    <LiveStage
-      :is-mobile="isMobile"
-      :stream-url="effectiveStreamUrl"
-      :loading="streamLoading"
-      :error-message="effectiveStreamErrorMessage"
-      :quality-options="playerQualityOptions"
-      :selected-quality-res="selectedQualityRes"
-      :chat-room-id="selectedZoneChatRoomId"
-      @retry="retryLiveStream"
-      @danmu="onDanmuReceived"
-    />
+    <LiveStage @danmu="onDanmuReceived" />
 
-    <ScheduleArea
-      :is-mobile="isMobile"
-      :enabled="enableSecondaryPanels"
-      :payload="schedule"
-      :live-game-info="liveGameInfo"
-      :selected-zone-id="selectedZoneId"
-      :team-group-map="teamGroupMap"
-      @team-select="onOpenTeamData"
-    />
+    <ScheduleArea :enabled="enableSecondaryPanels" @team-select="onOpenTeamData" />
 
-    <MatchDataDialog
+    <TeamInfoDialog
       v-model:visible="dataDialogVisible"
       :selected-team="dataDialogTeam"
+      :college-name="dataDialogCollege"
       :selected-zone-id="dataDialogZoneId"
       :selected-zone-name="dataDialogZoneName"
-      :group-sections="groupSections"
-      :group-rank-info="groupRankInfo"
-      :robot-data="robotData"
-      @team-select="onOpenTeamData"
+      @pick-team="onOpenTeamData"
     />
   </main>
 </template>

@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import type { ScheduleRowItem } from '../scheduleView';
 import {
   getRecentMatches,
   getScheduleSchoolOptions,
@@ -7,31 +6,25 @@ import {
   getTeamNameOptions,
   getZoneNameOptions,
   groupScheduleRowsByDate,
-} from '../scheduleView';
+  type MatchView,
+} from '../matchView';
 
-function createRow(partial: Partial<ScheduleRowItem>): ScheduleRowItem {
+function createRow(partial: Partial<MatchView>): MatchView {
   return {
-    id: '1',
+    blueTeam: { teamName: 'Blue', collegeName: 'B', logo: '' },
+    redTeam: { teamName: 'Red', collegeName: 'R', logo: '' },
+    score: '0 : 0',
+    status: '未开始',
+    stage: '-',
     slug: '-',
     orderNumber: '1',
+    startAt: '-',
+    id: '1',
     date: '2026/03/26',
     time: '10:00:00',
     dateTimeLabel: '03/26 10:00',
     startedAtTs: 0,
-    stage: '-',
-    redTeam: {
-      teamName: 'Red',
-      collegeName: 'R',
-      logo: '',
-    },
-    blueTeam: {
-      teamName: 'Blue',
-      collegeName: 'B',
-      logo: '',
-    },
-    score: '0 : 0',
     statusRaw: 'WAITING',
-    status: '未开始',
     replayVideo: null,
     planGameCount: 3,
     zoneId: 'z1',
@@ -41,9 +34,9 @@ function createRow(partial: Partial<ScheduleRowItem>): ScheduleRowItem {
   };
 }
 
-describe('scheduleView', () => {
+describe('schedule match list helpers', () => {
   it('builds unique sorted school and team options', () => {
-    const rows: ScheduleRowItem[] = [
+    const rows: MatchView[] = [
       createRow({
         redTeam: { teamName: 'Alpha', collegeName: 'SCUT', logo: '' },
         blueTeam: { teamName: 'Beta', collegeName: ' HIT ', logo: '' },
@@ -73,7 +66,7 @@ describe('scheduleView', () => {
   });
 
   it('builds unique sorted zone options with zoneId priority', () => {
-    const rows: ScheduleRowItem[] = [
+    const rows: MatchView[] = [
       createRow({ zoneId: 'z2', zoneName: '二号站' }),
       createRow({ zoneId: 'z1', zoneName: '一号站' }),
       createRow({ zoneId: 'z2', zoneName: '二号站' }),
@@ -88,7 +81,7 @@ describe('scheduleView', () => {
   });
 
   it('returns recent matches with up to two completed then upcoming by time', () => {
-    const rows: ScheduleRowItem[] = [
+    const rows: MatchView[] = [
       createRow({ id: 'c1', statusRaw: 'DONE', startedAtTs: 3000 }),
       createRow({ id: 'c2', statusRaw: 'ENDED', startedAtTs: 5000 }),
       createRow({ id: 'c3', statusRaw: 'DONE', startedAtTs: 1000 }),
@@ -103,7 +96,7 @@ describe('scheduleView', () => {
   });
 
   it('groups rows by date and keeps unknown date group last in asc order', () => {
-    const rows: ScheduleRowItem[] = [
+    const rows: MatchView[] = [
       createRow({ id: '1', startedAtTs: new Date('2026-03-24T10:00:00Z').getTime() }),
       createRow({ id: '2', startedAtTs: new Date('2026-03-25T10:00:00Z').getTime() }),
       createRow({ id: '3', startedAtTs: 0, date: 'unknown' }),

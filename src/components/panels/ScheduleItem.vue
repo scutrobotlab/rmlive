@@ -1,21 +1,16 @@
 <script setup lang="ts">
+import type { TeamSelectPayload } from '@/types/teamSelect';
+import type { MatchView } from '@/utils/matchView';
 import { DeferredContent } from 'primevue';
 import Button from 'primevue/button';
 import Card from 'primevue/card';
 import Tag from 'primevue/tag';
 import { computed, ref } from 'vue';
-import { type ScheduleRowItem } from '../../services/scheduleView';
 import TeamInfoCard from '../common/TeamInfoCard.vue';
 import ReplayVideoDialog from '../dialogs/ReplayVideoDialog.vue';
 
-interface TeamSelectPayload {
-  teamName: string;
-  zoneId?: string | null;
-  zoneName?: string | null;
-}
-
 interface Props {
-  item: ScheduleRowItem;
+  item: MatchView;
   teamGroupMap?: Record<string, { group: string; rank: string }>;
   compact?: boolean;
 }
@@ -26,11 +21,12 @@ const emit = defineEmits<{
   teamSelect: [payload: TeamSelectPayload];
 }>();
 
-function onSelectTeam(teamName: string) {
+function onSelectTeam(payload: TeamSelectPayload) {
   emit('teamSelect', {
-    teamName,
-    zoneId: props.item.zoneId,
-    zoneName: props.item.zoneName,
+    teamName: payload.teamName,
+    collegeName: payload.collegeName,
+    zoneId: payload.zoneId ?? props.item.zoneId,
+    zoneName: payload.zoneName ?? props.item.zoneName,
   });
 }
 
@@ -93,6 +89,14 @@ const showScore = computed(() => {
 });
 
 const isLiving = computed(() => ['STARTED', 'PLAYING'].includes(upperStatus.value));
+
+const slug = computed(() => {
+  const raw = String(props.item.slug ?? '').trim();
+  if (!raw || raw === '-') {
+    return undefined;
+  }
+  return raw;
+});
 </script>
 
 <template>
@@ -122,6 +126,7 @@ const isLiving = computed(() => ['STARTED', 'PLAYING'].includes(upperStatus.valu
             />
           </div>
           <div class="header-meta">
+            <Tag v-if="slug" :value="slug" severity="contrast" />
             <Tag :value="item.zoneName || `站点 ${item.zoneId || '-'}`" severity="secondary" />
             <Tag :value="matchOrderText" severity="contrast" />
           </div>
@@ -138,6 +143,8 @@ const isLiving = computed(() => ['STARTED', 'PLAYING'].includes(upperStatus.valu
               :group-label="toGroupLabel(item.redTeam.teamName)"
               :show-group-label="!props.compact"
               :show-college-name="!props.compact"
+              :zone-id="item.zoneId"
+              :zone-name="item.zoneName"
               logo-position="right"
               @select="onSelectTeam"
             />
@@ -169,6 +176,8 @@ const isLiving = computed(() => ['STARTED', 'PLAYING'].includes(upperStatus.valu
               :group-label="toGroupLabel(item.blueTeam.teamName)"
               :show-group-label="!props.compact"
               :show-college-name="!props.compact"
+              :zone-id="item.zoneId"
+              :zone-name="item.zoneName"
               @select="onSelectTeam"
             />
           </div>

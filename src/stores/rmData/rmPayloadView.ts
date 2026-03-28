@@ -1,5 +1,5 @@
-import type { CurrentAndNextMatches, Schedule } from '../types/api';
-import { normalizeZoneId } from './zoneView';
+import type { CurrentAndNextMatches, Schedule } from '../../types/api';
+import { normalizeZoneId } from '../../utils/zoneView';
 
 export function extractInferredLiveZoneIdSet(payload: CurrentAndNextMatches | null): Set<string> {
   if (!payload) {

@@ -1,12 +1,12 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
-import { normalizeDanmuFilterToken } from '../services/danmuFilterRules';
+import { normalizeDanmuFilterToken } from '../utils/danmuFilterRules';
 import {
   resolveDisplayNickname,
   resolveDisplaySchool,
   resolveTooltipMeta,
   resolveTooltipText,
-} from '../services/danmuView';
+} from '../utils/danmuView';
 import type { DanmuMessage } from '../types/api';
 
 export const useDanmuStore = defineStore('danmu', () => {

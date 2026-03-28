@@ -1,4 +1,4 @@
-import { normalizeZoneId } from './zoneView';
+import { normalizeZoneId } from '../../utils/zoneView';
 
 export interface ZoneOptionLike {
   value: string;

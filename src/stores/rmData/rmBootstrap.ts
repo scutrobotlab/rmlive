@@ -5,7 +5,7 @@ import type {
   LiveGameInfo,
   RobotData,
   Schedule,
-} from '../types/api';
+} from '../../types/api';
 import {
   fetchCurrentAndNextMatches,
   fetchGroupRankInfo,
@@ -13,7 +13,7 @@ import {
   fetchLiveGameInfo,
   fetchRobotData,
   fetchSchedule,
-} from './rmApi';
+} from '../../api/rmApi';
 
 export interface BootstrapFetchResults {
   liveGameInfoResult: PromiseSettledResult<LiveGameInfo>;

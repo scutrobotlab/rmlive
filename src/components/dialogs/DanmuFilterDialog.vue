@@ -7,7 +7,7 @@ import Message from 'primevue/message';
 import Tag from 'primevue/tag';
 import ToggleSwitch from 'primevue/toggleswitch';
 import { computed, ref } from 'vue';
-import { normalizeDanmuFilterToken } from '../../services/danmuFilterRules';
+import { normalizeDanmuFilterToken } from '@/utils/danmuFilterRules';
 import { useDanmuStore } from '../../stores/danmu';
 import { useDanmuFilterStore } from '../../stores/danmuFilter';
 

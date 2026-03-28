@@ -1,10 +1,6 @@
 import { useLocalStorage } from '@vueuse/core';
 import { defineStore } from 'pinia';
 import { computed, ref, watch } from 'vue';
-import { BOOTSTRAP_PER_REQUEST_TIMEOUT_MS, BOOTSTRAP_TOTAL_TIMEOUT_MS } from '../constants/runtime';
-import { createBootstrapTimeoutRunner } from '../services/bootstrapTimeout';
-import { buildTeamGroupMap, extractGroupSections } from '../services/groupView';
-import { logWarn, toErrorSummary } from '../services/observability';
 import {
   extractLiveZones,
   fetchLiveGameInfo,
@@ -12,25 +8,36 @@ import {
   resolveLiveStreamUrl,
   startRmPolling,
   type RmPollingController,
-} from '../services/rmApi';
+} from '../../api/rmApi';
+import { BOOTSTRAP_PER_REQUEST_TIMEOUT_MS, BOOTSTRAP_TOTAL_TIMEOUT_MS } from '../../constants/runtime';
+import { resolveZoneChatRoomId } from '../../utils/chatRoomView';
+import { buildTeamGroupMap, extractGroupSections } from '../../utils/groupView';
 import {
-  fetchBootstrapData,
-  getFulfilledValue,
-  getRejectedBootstrapSources,
-  resolveBootstrapStreamErrorMessage,
-  shouldKeepBootstrapFallback,
-} from '../services/rmBootstrap';
-import { extractInferredLiveZoneIdSet, extractScheduleZoneIdSet } from '../services/rmPayloadView';
-import { resolveDefaultQualityRes, resolveEffectiveStreamErrorMessage } from '../services/rmStreamView';
-import { getNowEpochSeconds } from '../services/timeNow';
-import { shouldAutoPromoteZone } from '../services/zoneSelection';
+  getRunningMatch,
+  getScheduleEventTitle,
+  getScheduleRows,
+  type MatchView,
+} from '../../utils/matchView';
+import { logWarn, toErrorSummary } from '../../utils/observability';
+import { resolveDefaultQualityRes, resolveEffectiveStreamErrorMessage, toPlayerQualityOptions } from '../../utils/rmStreamView';
+import { getNowEpochSeconds } from '../../utils/timeNow';
 import {
   normalizeZoneId,
   resolveZoneUiState,
   toZoneOptionItem,
   type ZoneOptionItem,
   type ZoneUiState,
-} from '../services/zoneView';
+} from '../../utils/zoneView';
+import { createBootstrapTimeoutRunner } from './bootstrapTimeout';
+import {
+  fetchBootstrapData,
+  getFulfilledValue,
+  getRejectedBootstrapSources,
+  resolveBootstrapStreamErrorMessage,
+  shouldKeepBootstrapFallback,
+} from './rmBootstrap';
+import { extractInferredLiveZoneIdSet, extractScheduleZoneIdSet } from './rmPayloadView';
+import { shouldAutoPromoteZone } from './zoneSelection';
 import type {
   CurrentAndNextMatches,
   GroupRankInfo,
@@ -38,7 +45,9 @@ import type {
   LiveGameInfo,
   RobotData,
   Schedule,
-} from '../types/api';
+} from '../../types/api';
+
+export type { ZoneOptionItem, ZoneUiState };
 
 export const useRmDataStore = defineStore('rm-data', () => {
   const liveGameInfo = ref<LiveGameInfo | null>(null);
@@ -96,7 +105,6 @@ export const useRmDataStore = defineStore('rm-data', () => {
       return false;
     }
 
-    // 只有当 liveState === 1 或在实时推断集合中时才能播放
     return zone.liveState === 1 || inferredLiveZoneIdSet.value.has(normalizeZoneId(zone.zoneId));
   });
   const effectiveStreamUrl = computed(() => (canPlaySelectedZone.value ? streamUrl.value : null));
@@ -113,6 +121,16 @@ export const useRmDataStore = defineStore('rm-data', () => {
     extractGroupSections(groupsOrder.value, selectedZoneId.value, selectedZoneName.value),
   );
   const teamGroupMap = computed(() => buildTeamGroupMap(groupSections.value));
+
+  const scheduleEventTitle = computed(() => getScheduleEventTitle(schedule.value));
+  const playerQualityOptions = computed(() => toPlayerQualityOptions(selectedZone.value));
+  const selectedZoneChatRoomId = computed(() =>
+    resolveZoneChatRoomId(liveGameInfo.value, selectedZoneId.value, selectedZoneName.value),
+  );
+  const scheduleMatchRows = computed(() => getScheduleRows(schedule.value, liveGameInfo.value));
+  const runningMatchForSelectedZone = computed((): MatchView | null =>
+    getRunningMatch(scheduleMatchRows.value, selectedZoneId.value),
+  );
 
   function ensureZoneSelection() {
     const options = zoneOptions.value;
@@ -349,6 +367,11 @@ export const useRmDataStore = defineStore('rm-data', () => {
     effectiveStreamErrorMessage,
     groupSections,
     teamGroupMap,
+    scheduleEventTitle,
+    playerQualityOptions,
+    selectedZoneChatRoomId,
+    scheduleMatchRows,
+    runningMatchForSelectedZone,
     setZone,
     startPolling,
     stopPolling,
