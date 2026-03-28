@@ -55,7 +55,10 @@ function getScoreParts(score: string): { red: number; blue: number } {
 }
 
 const scoreParts = computed(() => getScoreParts(props.item.score));
-const upperStatus = computed(() => props.item.statusRaw.toUpperCase());
+const upperStatus = computed(() => String(props.item.statusRaw ?? '').toUpperCase());
+
+/** BO 赛制：与 MatchView.planGameCount 一致（赛程 API / current-next 归一后均为数字）。 */
+const boLabel = computed(() => getBOLabel(Number(props.item.planGameCount ?? 0)));
 const matchTime = computed(() => {
   const value = String(props.item.time || '').trim();
   return value.length >= 5 ? value.slice(0, 5) : '--:--';
@@ -133,7 +136,7 @@ const slug = computed(() => {
             <ScheduleSubscription v-if="isMatchNotYetStarted" :match-id="item.id" />
           </div>
           <div class="header-meta">
-            <Tag v-if="slug" :value="slug" severity="contrast" />
+            <Tag v-if="slug" :value="slug" severity="info" />
             <Tag :value="item.zoneName || `站点 ${item.zoneId || '-'}`" severity="secondary" />
             <Tag :value="matchOrderText" severity="contrast" />
           </div>
@@ -158,7 +161,7 @@ const slug = computed(() => {
           </div>
 
           <div class="center-column">
-            <Tag :value="getBOLabel(item.planGameCount)" severity="info" />
+            <Tag :value="boLabel" severity="info" />
             <div class="status-row">
               <div v-if="upperStatus === 'WAITING'" class="waiting-space" />
               <div v-if="showScore" class="score-row">

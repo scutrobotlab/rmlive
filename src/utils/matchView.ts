@@ -171,6 +171,8 @@ export function toMatchView(data: unknown): MatchView | null {
 
   const blueSideWinGameCount = Number(asRecord.blueSideWinGameCount ?? 0);
   const redSideWinGameCount = Number(asRecord.redSideWinGameCount ?? 0);
+  const rawStatus = String(asRecord.status ?? '');
+  const planGameCount = Number(asRecord.planGameCount ?? 0);
 
   return {
     blueTeam: {
@@ -184,11 +186,13 @@ export function toMatchView(data: unknown): MatchView | null {
       logo: toStringValue(redTeam?.collegeLogo, ''),
     },
     score: `${redSideWinGameCount} : ${blueSideWinGameCount}`,
-    status: toStringValue(asRecord.status),
+    status: toStatusLabel(rawStatus),
+    statusRaw: rawStatus,
     stage: toStringValue(asRecord.matchType),
     slug: toStringValue(asRecord.slug),
     orderNumber: toStringValue(asRecord.orderNumber),
     startAt: formatFriendlyDateTime(asRecord.planStartedAt),
+    planGameCount,
   };
 }
 

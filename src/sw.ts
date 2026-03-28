@@ -4,9 +4,10 @@
  * snapshots in IndexedDB, diff vs previous run, then `showNotification` when permission granted.
  *
  * Polling model:
- * - Primary: main thread posts POLL_SCHEDULE on an interval while the tab is visible (see scheduleNotifyClient).
- * - Best-effort: Background Sync tag `schedule-sync` and Periodic Sync tag `schedule` when the browser supports them
- *   (intervals are not guaranteed; SW may be suspended).
+ * - Primary: main thread posts POLL_SCHEDULE when Pinia `schedule` updates (same source as the UI) plus a
+ *   fallback interval — see `scheduleNotifyClient.ts`. This is **not** driven by Periodic Background Sync.
+ * - Supplementary: Background Sync `schedule-sync` and Periodic Sync `schedule` may run in Chromium when
+ *   registered; they are unreliable for short intervals and are not used as the main notification cadence.
  */
 import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching';
 import type { Schedule } from './types/api';
