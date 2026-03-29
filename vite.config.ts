@@ -1,6 +1,7 @@
 import vue from '@vitejs/plugin-vue';
 import path from 'node:path';
 import { visualizer } from 'rollup-plugin-visualizer';
+import { mockDevServerPlugin } from 'vite-plugin-mock-dev-server';
 import { VitePWA } from 'vite-plugin-pwa';
 import { defineConfig } from 'vite';
 
@@ -8,6 +9,7 @@ import { defineConfig } from 'vite';
 export default defineConfig(({ mode }) => {
   const isAnalyze = mode === 'analyze';
   const isBuildIFrame = process.env.VITE_BUILD_IFRAME === 'true' || mode === 'iframe';
+  const useRmLiveJsonMock = process.env.VITE_RM_MOCK === '1';
 
   if (isBuildIFrame) {
     // Build iframe-inject.js as a standalone IIFE
@@ -45,6 +47,10 @@ export default defineConfig(({ mode }) => {
     base: process.env.VITE_BASE ?? '/',
     plugins: [
       vue(),
+      ...mockDevServerPlugin({
+        enabled: useRmLiveJsonMock,
+        prefix: ['/live_json'],
+      }),
       VitePWA({
         registerType: 'autoUpdate',
         strategies: 'injectManifest',
@@ -85,13 +91,17 @@ export default defineConfig(({ mode }) => {
     ].filter(Boolean),
     server: {
       proxy: {
-        '/live_json': {
-          target: 'https://rm-static.djicdn.com/',
-          changeOrigin: true,
-          rewrite: (path) => {
-            return path;
-          },
-        },
+        ...(useRmLiveJsonMock
+          ? {}
+          : {
+              '/live_json': {
+                target: 'https://rm-static.djicdn.com/',
+                changeOrigin: true,
+                rewrite: (path) => {
+                  return path;
+                },
+              },
+            }),
         '/rm-static': {
           target: 'https://rm-static.djicdn.com/',
           changeOrigin: true,
