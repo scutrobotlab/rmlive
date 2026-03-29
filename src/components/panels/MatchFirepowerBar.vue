@@ -1,31 +1,12 @@
 <script setup lang="ts">
 import { useMatchEngagementStore } from '@/stores/matchEngagement';
 import Button from 'primevue/button';
-import MeterGroup from 'primevue/metergroup';
-import type { MeterItem } from 'primevue/metergroup';
 import { useThrottleFn } from '@vueuse/core';
 import { storeToRefs } from 'pinia';
-import { computed } from 'vue';
+import MatchFirepowerDuel from './MatchFirepowerDuel.vue';
 
 const engagement = useMatchEngagementStore();
-const { redSupport, blueSupport } = storeToRefs(engagement);
-
-const meters = computed((): MeterItem[] => {
-  const r = redSupport.value;
-  const b = blueSupport.value;
-  const t = r + b;
-  if (t < 1) {
-    return [
-      { label: '红方 0', value: 50 },
-      { label: '蓝方 0', value: 50 },
-    ];
-  }
-  const rp = Math.round((r / t) * 100);
-  return [
-    { label: `红方 ${r}`, value: rp },
-    { label: `蓝方 ${b}`, value: 100 - rp },
-  ];
-});
+const { hydrateLoading } = storeToRefs(engagement);
 
 const onRed = useThrottleFn(() => {
   void engagement.sendSupport('red');
@@ -37,11 +18,19 @@ const onBlue = useThrottleFn(() => {
 </script>
 
 <template>
-  <div class="firepower-root">
-    <MeterGroup :value="meters" label-position="end" />
+  <div class="firepower-root" :class="{ 'firepower-root--hydrating': hydrateLoading }">
+    <div class="firepower-section-hd">本场火力 PK</div>
+    <MatchFirepowerDuel />
     <div class="firepower-actions">
-      <Button label="支持红方" size="small" severity="danger" @click="onRed" />
-      <Button label="支持蓝方" size="small" @click="onBlue" />
+      <Button label="红队助威" icon="pi pi-bolt" size="small" severity="danger" @click="onRed" />
+      <Button
+        label="蓝队助威"
+        icon="pi pi-bolt"
+        size="small"
+        severity="info"
+        outlined
+        @click="onBlue"
+      />
     </div>
   </div>
 </template>
@@ -50,9 +39,22 @@ const onBlue = useThrottleFn(() => {
 .firepower-root {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.45rem;
   margin-top: 0.5rem;
   min-width: 0;
+  transition: opacity 0.2s ease;
+}
+
+.firepower-section-hd {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--p-text-muted-color, #94a3b8);
+  text-transform: uppercase;
+}
+
+.firepower-root--hydrating {
+  opacity: 0.82;
 }
 
 .firepower-actions {

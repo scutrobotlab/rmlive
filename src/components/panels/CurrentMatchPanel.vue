@@ -32,7 +32,7 @@ watch(
   runningMatchForSelectedZone,
   (m) => {
     matchEngagement.applyRunningMatch(m);
-    void matchEngagement.refreshHydrate();
+    void matchEngagement.refreshHydrate({ trackLoading: true });
   },
   { immediate: true },
 );

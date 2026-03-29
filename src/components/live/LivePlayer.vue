@@ -13,7 +13,7 @@ import Button from 'primevue/button';
 import Message from 'primevue/message';
 import ProgressSpinner from 'primevue/progressspinner';
 import { useToast } from 'primevue/usetoast';
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { DanmuAttributes, DanmuMessage } from '../../types/api';
 import DanmuFilterDialog from '../dialogs/DanmuFilterDialog.vue';
 
@@ -259,7 +259,7 @@ async function initDanmu(roomId: string) {
 
   if (currentRoomId === roomId && danmuService.value) {
     matchEngagementStore.registerDanmuService(danmuService.value);
-    void matchEngagementStore.refreshHydrate();
+    void matchEngagementStore.refreshHydrate({ trackLoading: true });
     return;
   }
 
@@ -312,7 +312,7 @@ async function initDanmu(roomId: string) {
 
     danmuService.value = nextService;
     matchEngagementStore.registerDanmuService(nextService);
-    void matchEngagementStore.refreshHydrate();
+    void matchEngagementStore.refreshHydrate({ trackLoading: true });
   } catch (error) {
     if (connectingService) {
       try {
@@ -403,7 +403,7 @@ async function mountPlayer(url: string) {
     pip: !uiStore.isMobile,
     fullscreen: true,
     fullscreenWeb: !uiStore.isMobile,
-    quality: qualityItems.length > 1 ? qualityItems : undefined,
+    ...(qualityItems.length > 1 ? { quality: qualityItems } : {}),
     airplay: true,
     gesture: true,
     screenshot: false,
@@ -522,8 +522,14 @@ watch(
       destroyPlayer();
     }
   },
-  { immediate: true },
 );
+
+onMounted(() => {
+  const url = props.streamUrl;
+  if (url) {
+    void applyStreamUrl(url);
+  }
+});
 
 watch(
   () => [props.qualityOptions, props.selectedQualityRes] as const,

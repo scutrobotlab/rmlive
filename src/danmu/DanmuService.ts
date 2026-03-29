@@ -15,6 +15,12 @@ import {
 } from '../leancloud/rmliveIm';
 import type { DanmuAttributes, DanmuMessage, DanmuMode } from '../types/api';
 
+/**
+ * Danmu + match engagement (ImageMessage attributes). Red/blue and reaction counts are aggregated only
+ * from LeanCloud messages (history + live); no fabricated totals. `ConversationQuery#compact(true)` applies
+ * when opening the chat room (see resolveChatRoomInstance); `queryMessages` uses startTime/endTime only.
+ */
+
 const APP_ID = import.meta.env.VITE_CHATROOM_APP_ID as string;
 const APP_KEY = import.meta.env.VITE_CHATROOM_APP_KEY as string;
 /** Bumped so cached Realtime is recreated with typed-messages plugin. */
@@ -24,6 +30,34 @@ const GLOBAL_IMCLIENT_KEY = '__rmLiveLeancloudImClient_v2';
 const ENGAGEMENT_PLACEHOLDER_URL =
   (import.meta.env.VITE_ENGAGEMENT_IMAGE_URL as string | undefined) ||
   'https://cdn.jsdelivr.net/gh/mathiasbynens/small/pixel.gif';
+
+const DEFAULT_ENGAGEMENT_QUERY_LIMIT = 200;
+const DEFAULT_ENGAGEMENT_WINDOW_MINUTES = 30;
+
+function parseEngagementQueryLimit(override?: number): number {
+  if (override !== undefined) {
+    if (!Number.isFinite(override)) {
+      return DEFAULT_ENGAGEMENT_QUERY_LIMIT;
+    }
+    return Math.min(1000, Math.max(1, Math.floor(override)));
+  }
+  const raw = import.meta.env.VITE_ENGAGEMENT_QUERY_LIMIT;
+  const n = raw !== undefined && String(raw).trim() !== '' ? Number(raw) : DEFAULT_ENGAGEMENT_QUERY_LIMIT;
+  if (!Number.isFinite(n)) {
+    return DEFAULT_ENGAGEMENT_QUERY_LIMIT;
+  }
+  return Math.min(1000, Math.max(1, Math.floor(n)));
+}
+
+function parseEngagementWindowMinutes(): number {
+  const raw = import.meta.env.VITE_ENGAGEMENT_QUERY_WINDOW_MINUTES;
+  const n =
+    raw !== undefined && String(raw).trim() !== '' ? Number(raw) : DEFAULT_ENGAGEMENT_WINDOW_MINUTES;
+  if (!Number.isFinite(n)) {
+    return DEFAULT_ENGAGEMENT_WINDOW_MINUTES;
+  }
+  return Math.min(10080, Math.max(1, Math.floor(n)));
+}
 
 let sharedRealtime: any = null;
 let sharedRealtimeInitPromise: Promise<any> | null = null;
@@ -168,7 +202,8 @@ function normalizeDanmuStyleFromAttrs(attrs: Record<string, unknown>): Pick<Danm
 
 /** Narrow surface used by match engagement (avoids class private-field assignability issues). */
 export interface IMatchEngagementGateway {
-  fetchEngagementHistory(limit?: number): Promise<EngagementInbound[]>;
+  /** Uses VITE_ENGAGEMENT_QUERY_LIMIT and time window unless `limitOverride` is set (e.g. tests). */
+  fetchEngagementHistory(limitOverride?: number): Promise<EngagementInbound[]>;
   sendSupportTeam(matchKey: string, collegeName: string): Promise<void>;
   sendMatchReaction(matchKey: string, reactionId: string): Promise<void>;
 }
@@ -194,6 +229,23 @@ export class DanmuService implements IMatchEngagementGateway {
     this.handlers = handlers || {};
   }
 
+  private async resolveChatRoomInstance(imClient: any, chatRoomId: string): Promise<any> {
+    try {
+      const room = await imClient
+        .getChatRoomQuery()
+        .equalTo('objectId', chatRoomId)
+        .compact(true)
+        .limit(1)
+        .first();
+      if (room) {
+        return room;
+      }
+    } catch (e) {
+      console.warn('[Danmu] getChatRoomQuery().compact(true) failed, fallback getConversation:', e);
+    }
+    return (imClient as any).getConversation(chatRoomId, true);
+  }
+
   async connect(chatRoomId: string): Promise<void> {
     if (!APP_ID || !APP_KEY || !chatRoomId) {
       throw new Error('Missing Leancloud credentials or chatRoomId');
@@ -206,7 +258,7 @@ export class DanmuService implements IMatchEngagementGateway {
 
       const imClient = await getSharedImClient();
 
-      this.conversationInstance = await (imClient as any).getConversation(chatRoomId, true);
+      this.conversationInstance = await this.resolveChatRoomInstance(imClient, chatRoomId);
 
       if (this.conversationInstance?.join) {
         await this.conversationInstance.join();
@@ -351,15 +403,26 @@ export class DanmuService implements IMatchEngagementGateway {
     return Date.now();
   }
 
-  /** Pull recent image messages and return engagement payloads (client-side filter). */
-  async fetchEngagementHistory(limit = 200): Promise<EngagementInbound[]> {
+  /**
+   * Pull ImageMessage logs in a recent time window and map to engagement payloads.
+   * Limits come from env (unless `limitOverride`); no server-side totals — client sums messages.
+   */
+  async fetchEngagementHistory(limitOverride?: number): Promise<EngagementInbound[]> {
     if (!this.conversationInstance?.queryMessages || !lcImageMessageCtor) {
       return [];
     }
     try {
+      const { MessageQueryDirection } = await import('leancloud-realtime');
+      const limit = parseEngagementQueryLimit(limitOverride);
+      const windowMs = parseEngagementWindowMinutes() * 60 * 1000;
+      const startTime = new Date(Date.now() - windowMs);
+      const endTime = new Date();
       const list = await this.conversationInstance.queryMessages({
+        startTime,
+        endTime,
         limit,
         type: lcImageMessageCtor.TYPE,
+        direction: MessageQueryDirection.OLD_TO_NEW,
       });
       if (!Array.isArray(list)) {
         return [];
@@ -399,10 +462,8 @@ export class DanmuService implements IMatchEngagementGateway {
           .forEach((message: any) => this.handleRawMessage(message, TextMessage, 'history'));
       }
 
-      const engagement = await this.fetchEngagementHistory(200);
-      if (engagement.length > 0) {
-        this.handlers.onEngagementHydrate?.(engagement);
-      }
+      const engagement = await this.fetchEngagementHistory();
+      this.handlers.onEngagementHydrate?.(engagement);
     } catch (error) {
       console.warn('[Danmu] Failed to fetch LeanCloud history:', error);
     }
@@ -563,6 +624,7 @@ export class DanmuService implements IMatchEngagementGateway {
     }
   }
 
+  /** ImageMessage attrs: support_team + rmlive:msg_for_team (matchKey + TEAM_PAYLOAD_SEP + college). */
   async sendSupportTeam(matchKey: string, collegeName: string): Promise<void> {
     if (!this.conversationInstance) {
       throw new Error('Danmu service not connected');
@@ -579,6 +641,7 @@ export class DanmuService implements IMatchEngagementGateway {
     await this.conversationInstance.send(message);
   }
 
+  /** ImageMessage attrs: match_reaction + rmlive:msg_for_match (matchKey) + rmlive:reaction_id. */
   async sendMatchReaction(matchKey: string, reactionId: string): Promise<void> {
     if (!this.conversationInstance) {
       throw new Error('Danmu service not connected');

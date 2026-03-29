@@ -4,7 +4,7 @@ import { defineMock } from 'vite-plugin-mock-dev-server/helper';
 const MOCK_ZONE_ID = '1';
 const MOCK_ZONE_NAME = 'Mock 赛区';
 
-const TEST_HLS = 'https://test-streams.mux.dev/test_001/stream.m3u8';
+const TEST_HLS = 'https://demo.unified-streaming.com/k8s/live/scte35.isml/.m3u8';
 const TEST_CHATROOM_ID = '69bbb2c62fd897236f698ab9';
 
 const liveGameInfo = {
@@ -17,8 +17,8 @@ const liveGameInfo = {
       chatRoomId: TEST_CHATROOM_ID,
       zoneLiveString: [
         {
-          label: '测试流',
-          res: '720p',
+          label: '720p',
+          res: 'high',
           src: TEST_HLS,
         },
       ],

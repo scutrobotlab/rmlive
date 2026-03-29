@@ -73,20 +73,20 @@ async function runSchedulePoll(): Promise<void> {
     return;
   }
 
-  for (const { type, snap } of events) {
-    const title =
-      type === 'match_start'
-        ? `比赛开始 · ${snap.redTeamName} vs ${snap.blueTeamName}`
-        : type === 'match_end'
-          ? `比赛结束 · ${snap.redTeamName} vs ${snap.blueTeamName}`
-          : `小局结束 · ${snap.redTeamName} vs ${snap.blueTeamName}`;
-    await self.registration.showNotification(title, {
-      body: notificationBody(type, snap),
-      icon: '/rmlive-logo.svg',
-      badge: '/rmlive-logo.svg',
-      tag: `match-${snap.id}-${type}`,
-    });
-  }
+  // One poll can yield many diffs (e.g. catch-up after idle); only surface the latest to avoid notification spam.
+  const { type, snap } = events[events.length - 1]!;
+  const title =
+    type === 'match_start'
+      ? `比赛开始 · ${snap.redTeamName} vs ${snap.blueTeamName}`
+      : type === 'match_end'
+        ? `比赛结束 · ${snap.redTeamName} vs ${snap.blueTeamName}`
+        : `小局结束 · ${snap.redTeamName} vs ${snap.blueTeamName}`;
+  await self.registration.showNotification(title, {
+    body: notificationBody(type, snap),
+    icon: '/rmlive-logo.svg',
+    badge: '/rmlive-logo.svg',
+    tag: `match-${snap.id}-${type}`,
+  });
 }
 
 self.addEventListener('message', (event: ExtendableMessageEvent) => {

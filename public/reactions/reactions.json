@@ -1,0 +1,7 @@
+[
+  { "id": "fire", "name": "燃", "url": "/reactions/fire.svg" },
+  { "id": "clap", "name": "精彩", "url": "/reactions/clap.svg" },
+  { "id": "wow", "name": "离谱", "url": "/reactions/wow.svg" },
+  { "id": "heart", "name": "爱了", "url": "/reactions/heart.svg" },
+  { "id": "think", "name": "下饭", "url": "/reactions/think.svg" }
+]

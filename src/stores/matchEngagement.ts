@@ -21,13 +21,14 @@ export const useMatchEngagementStore = defineStore('matchEngagement', () => {
   const blueSupport = ref(0);
   const reactions = ref<Record<string, number>>({});
   const seenEngagementIds = ref<Set<string>>(new Set());
+  const hydrateLoading = ref(false);
 
   const danmuServiceRef = shallowRef<IMatchEngagementGateway | null>(null);
 
   const redPercent = computed(() => {
     const t = redSupport.value + blueSupport.value;
     if (t <= 0) {
-      return 50;
+      return 0;
     }
     return Math.round((redSupport.value / t) * 100);
   });
@@ -35,7 +36,7 @@ export const useMatchEngagementStore = defineStore('matchEngagement', () => {
   const bluePercent = computed(() => {
     const t = redSupport.value + blueSupport.value;
     if (t <= 0) {
-      return 50;
+      return 0;
     }
     return 100 - redPercent.value;
   });
@@ -116,16 +117,24 @@ export const useMatchEngagementStore = defineStore('matchEngagement', () => {
     seenEngagementIds.value = nextSeen;
   }
 
-  async function refreshHydrate() {
+  async function refreshHydrate(options?: { trackLoading?: boolean }) {
     const svc = danmuServiceRef.value;
     if (!svc || !currentMatchKey.value) {
       return;
     }
+    const track = options?.trackLoading === true;
+    if (track) {
+      hydrateLoading.value = true;
+    }
     try {
-      const list = await svc.fetchEngagementHistory(200);
+      const list = await svc.fetchEngagementHistory();
       hydrateFromHistory(list);
     } catch (e) {
       console.warn('[matchEngagement] refreshHydrate failed', e);
+    } finally {
+      if (track) {
+        hydrateLoading.value = false;
+      }
     }
   }
 
@@ -139,7 +148,12 @@ export const useMatchEngagementStore = defineStore('matchEngagement', () => {
     if (!college) {
       return;
     }
-    await svc.sendSupportTeam(mk, college);
+    try {
+      await svc.sendSupportTeam(mk, college);
+      await refreshHydrate();
+    } catch (e) {
+      console.warn('[matchEngagement] sendSupport failed', e);
+    }
   }
 
   async function sendReaction(reactionId: string) {
@@ -148,7 +162,12 @@ export const useMatchEngagementStore = defineStore('matchEngagement', () => {
     if (!svc || !mk || !reactionId) {
       return;
     }
-    await svc.sendMatchReaction(mk, reactionId);
+    try {
+      await svc.sendMatchReaction(mk, reactionId);
+      await refreshHydrate();
+    } catch (e) {
+      console.warn('[matchEngagement] sendReaction failed', e);
+    }
   }
 
   return {
@@ -160,6 +179,7 @@ export const useMatchEngagementStore = defineStore('matchEngagement', () => {
     reactions,
     redPercent,
     bluePercent,
+    hydrateLoading,
     registerDanmuService,
     applyRunningMatch,
     ingestLive,

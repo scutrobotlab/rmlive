@@ -9,7 +9,10 @@ export const RMLIVE_REACTION_ID = 'rmlive:reaction_id';
 export const MSG_TYPE_SUPPORT_TEAM = 'support_team';
 export const MSG_TYPE_MATCH_REACTION = 'match_reaction';
 
-/** Separates match key and college in `rmlive:msg_for_team` (college name may contain ":"). */
+/**
+ * Separates match key and college in `rmlive:msg_for_team`.
+ * Not a literal `matchId:学校` colon — school names may contain ":"; wire format is matchKey + sep + college.
+ */
 export const TEAM_PAYLOAD_SEP = '\u001f';
 
 export interface EngagementInbound {
