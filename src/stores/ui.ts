@@ -26,11 +26,7 @@ export const useUiStore = defineStore('ui', () => {
   /** Skip one run of SchedulePanel auto-tab switching after programmatic navigation. */
   const suppressScheduleAutoTabOnce = ref(false);
 
-  function requestSchedulePanelFocus(opts: {
-    tab: 'schedule' | 'result';
-    teamNames?: string[];
-    zoneIds?: string[];
-  }) {
+  function requestSchedulePanelFocus(opts: { tab: 'schedule' | 'result'; teamNames?: string[]; zoneIds?: string[] }) {
     suppressScheduleAutoTabOnce.value = true;
     schedulePanelIntent.value = {
       tab: opts.tab,
@@ -53,6 +49,7 @@ export const useUiStore = defineStore('ui', () => {
   }
 
   function applyTheme() {
+    document.documentElement.classList.toggle('p-dark', isDark.value);
     document.documentElement.classList.toggle('app-dark', isDark.value);
   }
 

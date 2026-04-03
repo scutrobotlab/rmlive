@@ -67,16 +67,16 @@ const settingsVisible = ref(false);
 </script>
 
 <template>
-  <Toolbar class="top-toolbar">
+  <Toolbar class="top-toolbbar">
     <template #start>
       <div class="toolbar-brand">
         <img :src="brandLogoUrl" alt="RMLive logo" class="brand-logo" />
         <div class="toolbar-brand-meta" v-if="!uiStore.isMobile">
           <h1>
-            <span>RMLive - Better 直播流</span>
-            <small v-if="scheduleEventTitle" class="event-title">{{ scheduleEventTitle }}</small>
+            <span>RMLive</span>
+            <small class="event-title">更清晰的赛事视图，更顺滑的直播体验</small>
           </h1>
-          <p>更清晰的赛事视图，更顺滑的直播体验</p>
+          <p v-if="scheduleEventTitle">{{ scheduleEventTitle }}</p>
         </div>
       </div>
     </template>
@@ -203,10 +203,6 @@ const settingsVisible = ref(false);
 </template>
 
 <style scoped>
-.top-toolbar {
-  margin-bottom: 1rem;
-}
-
 .toolbar-brand {
   display: flex;
   align-items: center;

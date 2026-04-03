@@ -82,17 +82,21 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="app-shell">
+  <main class="ginvoice-app-shell">
     <Toast position="top-right" />
-    <TopToolbar />
+    <TopToolbar class="ginvoice-user-shell-menu" />
 
-    <section class="match-hero">
-      <CurrentMatchPanel :key="dataStore.selectedZoneId ?? 'zone-empty'" @team-select="onOpenTeamData" />
-    </section>
+    <div class="ginvoice-main-container !min-h-0 !pt-4 lg:!pt-5">
+      <div class="ginvoice-main">
+        <section class="match-hero">
+          <CurrentMatchPanel :key="dataStore.selectedZoneId ?? 'zone-empty'" @team-select="onOpenTeamData" />
+        </section>
 
-    <LiveStage @danmu="onDanmuReceived" @danmu-reset="onDanmuReset" />
+        <LiveStage @danmu="onDanmuReceived" @danmu-reset="onDanmuReset" />
 
-    <ScheduleArea :enabled="enableSecondaryPanels" @team-select="onOpenTeamData" />
+        <ScheduleArea :enabled="enableSecondaryPanels" @team-select="onOpenTeamData" />
+      </div>
+    </div>
 
     <TeamInfoDialog
       v-model:visible="dataDialogVisible"
@@ -106,21 +110,7 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.app-shell {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 1rem;
-  box-sizing: border-box;
-  overflow-x: clip;
-}
-
 .match-hero {
   margin-bottom: 1rem;
-}
-
-@media (max-width: 768px) {
-  .app-shell {
-    padding: 0.65rem;
-  }
 }
 </style>
