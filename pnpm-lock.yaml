@@ -29,12 +29,6 @@ importers:
       leancloud-realtime:
         specifier: 5.0.0-rc.8
         version: 5.0.0-rc.8
-      leancloud-realtime-plugin-typed-messages:
-        specifier: ^4.0.2
-        version: 4.0.2(leancloud-realtime@5.0.0-rc.8)(leancloud-storage@4.15.2)
-      leancloud-storage:
-        specifier: ^4.15.2
-        version: 4.15.2
       pinia:
         specifier: ^3.0.4
         version: 3.0.4(typescript@5.9.3)(vue@3.5.30(typescript@5.9.3))
@@ -698,10 +692,6 @@ packages:
     resolution: {integrity: sha512-HrcgcIESLm9aIR842yhJ5RWan/gebQUJ6E/E5+rf0y9o6oj7w0Br+sWuL6kEQ/o/AdfvR1Je9jG18/gnpwjEyA==}
     peerDependencies:
       '@babel/core': ^7.0.0-0 || ^8.0.0-0 <8.0.0
-
-  '@babel/runtime-corejs3@7.29.2':
-    resolution: {integrity: sha512-Lc94FOD5+0aXhdb0Tdg3RUtqT6yWbI/BbFWvlaSJ3gAb9Ks+99nHRDKADVqC37er4eCB0fHyWT+y+K3QOvJKbw==}
-    engines: {node: '>=6.9.0'}
 
   '@babel/runtime@7.29.2':
     resolution: {integrity: sha512-JiDShH45zKHWyGe4ZNVRrCjBz8Nh9TMmZG1kh4QTK8hCBTWBi8Da+i7s1fJw7/lYpM4ccepSNfqzZ/QvABBi5g==}
@@ -2017,9 +2007,6 @@ packages:
   character-entities@2.0.2:
     resolution: {integrity: sha512-shx7oQ0Awen/BRIdkjkvz54PnEEI/EjwXDSIZp86/KKdbafHh1Df/RYGBhn4hbe2+uKC9FnT5UCEdyPz3ai9hQ==}
 
-  charenc@0.0.2:
-    resolution: {integrity: sha512-yrLQ/yVUFXkzg7EDQsPieE/53+0RlaWTs+wBrvW36cyilJ2SaDWfl4Yj7MtLTXleV9uEKefbAGUPv2/iWSooRA==}
-
   chokidar@5.0.0:
     resolution: {integrity: sha512-TQMmc3w+5AxjpL8iIiwebF73dRDF4fBIieAqGn9RGCWaEVwQ6Fb2cGe31Yns0RRIzii5goJ1Y7xbMwo1TxMplw==}
     engines: {node: '>= 20.19.0'}
@@ -2127,9 +2114,6 @@ packages:
   core-js-compat@3.49.0:
     resolution: {integrity: sha512-VQXt1jr9cBz03b331DFDCCP90b3fanciLkgiOoy8SBHy06gNf+vQ1A3WFLqG7I8TipYIKeYK9wxd0tUrvHcOZA==}
 
-  core-js-pure@3.49.0:
-    resolution: {integrity: sha512-XM4RFka59xATyJv/cS3O3Kml72hQXUeGRuuTmMYFxwzc9/7C8OYTaIR/Ji+Yt8DXzsFLNhat15cE/JP15HrCgw==}
-
   cors@2.8.6:
     resolution: {integrity: sha512-tJtZBBHA6vjIAaF6EnIaq6laBBP9aq/Y3ouVJjEfoHbRBcHBAHYcMh/w8LDrk2PvIMMq8gmopa5D4V8RmbrxGw==}
     engines: {node: '>= 0.10'}
@@ -2151,9 +2135,6 @@ packages:
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
     engines: {node: '>= 8'}
-
-  crypt@0.0.2:
-    resolution: {integrity: sha512-mCxBlsHFYh9C+HVpiEacem8FEBnMXgU9gy4zmNC+SXAZNB/1idgp/aulFJ4FgCi7GPEVbfyng092GqL2k2rmow==}
 
   crypto-random-string@2.0.0:
     resolution: {integrity: sha512-v1plID3y9r/lPhviJ1wrXpLeyUIGAZ2SHNYTEapm7/8A9nLPoyvVp3RK/EPFqn5kEznyWgYZNsRtYYIWbuG8KA==}
@@ -2625,9 +2606,6 @@ packages:
     resolution: {integrity: sha512-i/2XbnSz/uxRCU6+NdVJgKWDTM427+MqYbkQzD321DuCQJUqOuJKIA0IM2+W2xtYHdKOmZ4dR6fExsd4SXL+WQ==}
     engines: {node: '>=6'}
 
-  eventemitter3@2.0.3:
-    resolution: {integrity: sha512-jLN68Dx5kyFHaePoXWPsCGW5qdyZQtLYHkxkg02/Mz6g0kYpDx4FyP6XfArhQdlOC4b8Mv+EMxPo/8La7Tzghg==}
-
   eventemitter3@3.1.2:
     resolution: {integrity: sha512-tvtQIeLVHjDkJYnzf2dgVMxfuSGJeM/7UCG17TT4EumTfNtF+0nebF/4zWOIkCreAbtNqhGEboB6BWrwqNaw4Q==}
 
@@ -3010,9 +2988,6 @@ packages:
     resolution: {integrity: sha512-wa56o2/ElJMYqjCjGkXri7it5FbebW5usLw/nPmCMs5DeZ7eziSYZhSmPRn0txqeW4LnAmQQU7FgqLpsEFKM4A==}
     engines: {node: '>= 0.4'}
 
-  is-buffer@1.1.6:
-    resolution: {integrity: sha512-NcdALwpXkTm5Zvvbk7owOUSvVvBKDgKP5/ewfXEznmQFfs4ZRmanOeKBTjRVjka3QFoN6XJ+9F3USqfHqTaU5w==}
-
   is-builtin-module@5.0.0:
     resolution: {integrity: sha512-f4RqJKBUe5rQkJ2eJEJBXSticB3hGbN9j0yxxMQFqIW89Jp9WYFtzfTcRlstDKVUTRzSOTLKRfO9vIztenwtxA==}
     engines: {node: '>=18.20'}
@@ -3251,22 +3226,8 @@ packages:
     resolution: {integrity: sha512-YiGkH6EnGrDGqLMITnGjXtGmNtjoXw9SVUzcaos8RBi7Ps0VBylkq+vOcY9QE5poLasPCR849ucFUkl0UzUyOw==}
     engines: {node: '>=0.10.0'}
 
-  leancloud-realtime-plugin-live-query@1.2.0:
-    resolution: {integrity: sha512-eJooIH8/FyUoozr3Eeby2DpDnmX39m1bfxfxlYPuojkio+i/DLwPD+aTHnRDH6QXJcT6tNTt85RcxVR/Txg98Q==}
-    peerDependencies:
-      leancloud-realtime: ^3.5.0 || ^4.0.0-beta.2 || ^5.0.0-alpha.2
-
-  leancloud-realtime-plugin-typed-messages@4.0.2:
-    resolution: {integrity: sha512-Hrr3yg6v4Q9rC+k8dKRbj1fWhP+HiiTjDl25X9I+ZLGYz283uxJ15BqA220tKOdOCM/cbK5DAsSIMxP3/b9wnQ==}
-    peerDependencies:
-      leancloud-realtime: ^4.0.0-alpha.3 || ^5.0.0-alpha.2
-      leancloud-storage: ^2.0.0 || ^3.0.0 || ^4.0.0
-
   leancloud-realtime@5.0.0-rc.8:
     resolution: {integrity: sha512-H54ZPJnsR9oXM8fRqeT0foAIdtV9tqS9b+DQgzAIg1Okn0CBnJXSbJg5c4yHZNCtmX4lxZ1LudEspytW0V/AyQ==}
-
-  leancloud-storage@4.15.2:
-    resolution: {integrity: sha512-zvlfeG2aq25lFZ+2pvo0KoMf3jDuR0ThzLivCj5Yv3yhZf2i/BL5fypW+0IqRh6YSFkJ731iHHfq7FIPhxdHpw==}
 
   leven@3.1.0:
     resolution: {integrity: sha512-qsda+H8jTaUaN/x5vzW2rzc+8Rw4TAQ/4KjB46IwK5VH+IlVeeeje/EoZRpiXvIqjFgK84QffqPztGI3VBLG1A==}
@@ -3428,9 +3389,6 @@ packages:
 
   mathml-tag-names@2.1.3:
     resolution: {integrity: sha512-APMBEanjybaPzUrfqU0IMU5I0AswKMH7k8OTLs0vvV4KZpExkTkY87nR/zpbuTPj+gARop7aGUbl11pnDfW6xg==}
-
-  md5@2.3.0:
-    resolution: {integrity: sha512-T1GITYmFaKuO91vxyoQMFETst+O71VUPEU3ze5GNzDm0OWdP8v1ziTaAEPUr/3kLsY3Sftgz242A1SetQiDL7g==}
 
   mdast-util-find-and-replace@3.0.2:
     resolution: {integrity: sha512-Tmd1Vg/m3Xz43afeNxDIhWRtFZgM2VLyaf4vSTYwudTyeuTneoL3qtWMA5jeLyz/O1vDJmmV4QuScFCA2tBPwg==}
@@ -4493,9 +4451,6 @@ packages:
 
   unconfig@7.5.0:
     resolution: {integrity: sha512-oi8Qy2JV4D3UQ0PsopR28CzdQ3S/5A1zwsUwp/rosSbfhJ5z7b90bIyTwi/F7hCLD4SGcZVjDzd4XoUQcEanvA==}
-
-  underscore@1.13.8:
-    resolution: {integrity: sha512-DXtD3ZtEQzc7M8m4cXotyHR+FAS18C64asBYY5vqZexfYryNNnDc02W4hKg3rdQuqOYas1jkseX0+nZXjTXnvQ==}
 
   undici-types@7.16.0:
     resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
@@ -5567,10 +5522,6 @@ snapshots:
       '@babel/helper-plugin-utils': 7.28.6
       '@babel/types': 7.29.0
       esutils: 2.0.3
-
-  '@babel/runtime-corejs3@7.29.2':
-    dependencies:
-      core-js-pure: 3.49.0
 
   '@babel/runtime@7.29.2': {}
 
@@ -6826,8 +6777,6 @@ snapshots:
 
   character-entities@2.0.2: {}
 
-  charenc@0.0.2: {}
-
   chokidar@5.0.0:
     dependencies:
       readdirp: 5.0.0
@@ -6925,8 +6874,6 @@ snapshots:
     dependencies:
       browserslist: 4.28.1
 
-  core-js-pure@3.49.0: {}
-
   cors@2.8.6:
     dependencies:
       object-assign: 4.1.1
@@ -6950,8 +6897,6 @@ snapshots:
       path-key: 3.1.1
       shebang-command: 2.0.0
       which: 2.0.2
-
-  crypt@0.0.2: {}
 
   crypto-random-string@2.0.0: {}
 
@@ -7528,8 +7473,6 @@ snapshots:
 
   event-target-shim@5.0.1: {}
 
-  eventemitter3@2.0.3: {}
-
   eventemitter3@3.1.2: {}
 
   eventemitter3@5.0.4: {}
@@ -7912,8 +7855,6 @@ snapshots:
       call-bound: 1.0.4
       has-tostringtag: 1.0.2
 
-  is-buffer@1.1.6: {}
-
   is-builtin-module@5.0.0:
     dependencies:
       builtin-modules: 5.0.0
@@ -8113,15 +8054,6 @@ snapshots:
     dependencies:
       invert-kv: 1.0.0
 
-  leancloud-realtime-plugin-live-query@1.2.0(leancloud-realtime@5.0.0-rc.8):
-    dependencies:
-      leancloud-realtime: 5.0.0-rc.8
-
-  leancloud-realtime-plugin-typed-messages@4.0.2(leancloud-realtime@5.0.0-rc.8)(leancloud-storage@4.15.2):
-    dependencies:
-      leancloud-realtime: 5.0.0-rc.8
-      leancloud-storage: 4.15.2
-
   leancloud-realtime@5.0.0-rc.8:
     dependencies:
       '@babel/runtime': 7.29.2
@@ -8136,26 +8068,6 @@ snapshots:
       lodash: 4.17.23
       promise-timeout: 1.3.0
       protobufjs: 5.0.3
-      uuid: 3.4.0
-    transitivePeerDependencies:
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-
-  leancloud-storage@4.15.2:
-    dependencies:
-      '@babel/runtime-corejs3': 7.29.2
-      '@leancloud/adapter-types': 5.0.0
-      '@leancloud/platform-adapters-browser': 1.5.3
-      '@leancloud/platform-adapters-node': 1.6.0
-      '@leancloud/platform-adapters-weapp': 1.6.3
-      debug: 3.2.7
-      eventemitter3: 2.0.3
-      leancloud-realtime: 5.0.0-rc.8
-      leancloud-realtime-plugin-live-query: 1.2.0(leancloud-realtime@5.0.0-rc.8)
-      md5: 2.3.0
-      promise-timeout: 1.3.0
-      underscore: 1.13.8
       uuid: 3.4.0
     transitivePeerDependencies:
       - bufferutil
@@ -8301,12 +8213,6 @@ snapshots:
   math-intrinsics@1.1.0: {}
 
   mathml-tag-names@2.1.3: {}
-
-  md5@2.3.0:
-    dependencies:
-      charenc: 0.0.2
-      crypt: 0.0.2
-      is-buffer: 1.1.6
 
   mdast-util-find-and-replace@3.0.2:
     dependencies:
@@ -9687,8 +9593,6 @@ snapshots:
       jiti: 2.6.1
       quansync: 1.0.0
       unconfig-core: 7.5.0
-
-  underscore@1.13.8: {}
 
   undici-types@7.16.0: {}
 

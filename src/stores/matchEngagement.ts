@@ -1,4 +1,5 @@
-import { subscribeEngagementLiveMessages, type IMatchEngagementGateway } from '@/danmu/DanmuService';
+import reactionCatalog from '@/assets/reactions.json';
+import type { IMatchEngagementGateway } from '@/danmu/im/types';
 import {
   buildMatchKeyFromView,
   MSG_TYPE_MATCH_REACTION,
@@ -39,8 +40,6 @@ export const useMatchEngagementStore = defineStore('matchEngagement', () => {
   const supportFxTimers = new Map<string, ReturnType<typeof setTimeout>>();
   let hydrateRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   let viewerCountPollTimer: ReturnType<typeof setInterval> | null = null;
-  let engagementLiveUnsubscribe: (() => void) | null = null;
-  let engagementLiveSubscribePromise: Promise<void> | null = null;
 
   const redPercent = computed(() => {
     const t = redSupport.value + blueSupport.value;
@@ -124,25 +123,6 @@ export const useMatchEngagementStore = defineStore('matchEngagement', () => {
     }, 5000);
   }
 
-  function ensureEngagementLiveSubscription() {
-    if (engagementLiveUnsubscribe || engagementLiveSubscribePromise) {
-      return;
-    }
-
-    engagementLiveSubscribePromise = subscribeEngagementLiveMessages((msg) => {
-      ingestLive(msg);
-    })
-      .then((unsubscribe) => {
-        engagementLiveUnsubscribe = unsubscribe;
-      })
-      .catch((error) => {
-        console.warn('[matchEngagement] subscribeEngagementLiveMessages failed', error);
-      })
-      .finally(() => {
-        engagementLiveSubscribePromise = null;
-      });
-  }
-
   function scheduleHydrateRefresh(delayMs = 1800) {
     clearHydrateRefreshTimer();
     hydrateRefreshTimer = setTimeout(() => {
@@ -167,7 +147,6 @@ export const useMatchEngagementStore = defineStore('matchEngagement', () => {
       redCollege.value = nextRedCollege;
       blueCollege.value = nextBlueCollege;
       resetCounts();
-      ensureEngagementLiveSubscription();
       if (danmuServiceRef.value) {
         startViewerCountPolling();
       }
@@ -175,7 +154,6 @@ export const useMatchEngagementStore = defineStore('matchEngagement', () => {
     }
     redCollege.value = nextRedCollege;
     blueCollege.value = nextBlueCollege;
-    ensureEngagementLiveSubscription();
   }
 
   function getSupportSideByCollege(collegeName: string | null | undefined): SupportSide | null {
@@ -223,6 +201,38 @@ export const useMatchEngagementStore = defineStore('matchEngagement', () => {
     }
   }
 
+  function applyCountSnapshot(snapshot: {
+    redSupport: number;
+    blueSupport: number;
+    reactions: Record<string, number>;
+  }) {
+    redSupport.value = snapshot.redSupport;
+    blueSupport.value = snapshot.blueSupport;
+    reactions.value = reactionCatalog.reduce<Record<string, number>>((acc, item) => {
+      acc[item.id] = snapshot.reactions[item.id] ?? 0;
+      return acc;
+    }, {});
+  }
+
+  function applyWorkerSnapshot(payload: {
+    matchKey: string;
+    status: 'hydrating' | 'live';
+    snapshot: {
+      redSupport: number;
+      blueSupport: number;
+      reactions: Record<string, number>;
+    };
+  }) {
+    if (!currentMatchKey.value || payload.matchKey !== currentMatchKey.value) {
+      return;
+    }
+
+    applyCountSnapshot(payload.snapshot);
+    if (payload.status === 'live') {
+      hydrateLoading.value = false;
+    }
+  }
+
   function ingestLive(p: EngagementInbound) {
     if (!currentMatchKey.value || p.matchKey !== currentMatchKey.value) {
       return;
@@ -243,18 +253,30 @@ export const useMatchEngagementStore = defineStore('matchEngagement', () => {
     if (!currentMatchKey.value) {
       return;
     }
+    const targetMatchKey = currentMatchKey.value;
     redSupport.value = 0;
     blueSupport.value = 0;
     reactions.value = {};
     const nextSeen = new Set<string>();
+    let filteredByMatchKey = 0;
+    let dedupedCount = 0;
+    let supportApplied = 0;
+    let reactionApplied = 0;
     for (const p of items) {
-      if (p.matchKey !== currentMatchKey.value) {
+      if (p.matchKey !== targetMatchKey) {
+        filteredByMatchKey += 1;
         continue;
       }
       if (nextSeen.has(p.messageId)) {
+        dedupedCount += 1;
         continue;
       }
       nextSeen.add(p.messageId);
+      if (p.kind === MSG_TYPE_SUPPORT_TEAM) {
+        supportApplied += 1;
+      } else if (p.kind === MSG_TYPE_MATCH_REACTION) {
+        reactionApplied += 1;
+      }
       applyHydratedDelta(p);
     }
     seenEngagementIds.value = nextSeen;
@@ -271,8 +293,13 @@ export const useMatchEngagementStore = defineStore('matchEngagement', () => {
       hydrateLoading.value = true;
     }
     try {
-      const list = await svc.fetchEngagementHistory();
-      hydrateFromHistory(list);
+      const snapshot = await svc.setEngagementMatch({
+        matchKey: currentMatchKey.value,
+        redCollege: redCollege.value,
+        blueCollege: blueCollege.value,
+        reactionIds: reactionCatalog.map((item) => item.id),
+      });
+      applyCountSnapshot(snapshot);
     } catch (e) {
       console.warn('[matchEngagement] refreshHydrate failed', e);
     } finally {
@@ -371,6 +398,7 @@ export const useMatchEngagementStore = defineStore('matchEngagement', () => {
     registerViewerCountService,
     applyRunningMatch,
     ingestLive,
+    applyWorkerSnapshot,
     hydrateFromHistory,
     refreshHydrate,
     enqueueSupportFx,

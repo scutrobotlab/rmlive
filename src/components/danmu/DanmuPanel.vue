@@ -52,10 +52,6 @@ const viewerCountLabel = computed(() => {
 
     <div v-else class="list-body list-empty-wrap">
       <div class="list-empty">暂无弹幕</div>
-      <div class="list-skeleton">
-        <Skeleton width="100%" height="1.6rem" />
-        <Skeleton width="100%" height="1.6rem" />
-      </div>
     </div>
 
     <ScrollTop target=".danmu-virtual" :threshold="120" icon="pi pi-arrow-up" />

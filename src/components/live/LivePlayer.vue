@@ -343,7 +343,7 @@ async function initDanmu(roomId: string) {
           return;
         }
         emit('danmu', msg);
-        if (msg.source !== 'history' && danmuFilterStore.matchMessage(msg)) {
+        if (msg.source !== 'history') {
           pushDanmuToPlayer(msg);
         }
       },
@@ -353,11 +353,11 @@ async function initDanmu(roomId: string) {
         }
         matchEngagementStore.ingestLive(p);
       },
-      onEngagementHydrate: (list) => {
+      onEngagementSnapshot: (payload) => {
         if (token !== roomSwitchToken) {
           return;
         }
-        matchEngagementStore.hydrateFromHistory(list);
+        matchEngagementStore.applyWorkerSnapshot(payload);
       },
       onError: (error) => {
         console.error('[LivePlayer] Danmu service error:', error);
@@ -378,6 +378,7 @@ async function initDanmu(roomId: string) {
     }
 
     danmuService.value = nextService;
+    await nextService.updateDanmuFilterRules(danmuFilterStore.rules);
     matchEngagementStore.registerDanmuService(nextService);
     matchEngagementStore.registerViewerCountService(nextService);
     void matchEngagementStore.refreshHydrate({ trackLoading: true });
@@ -589,6 +590,19 @@ watch(
 );
 
 exposeDanmuDebugApi();
+
+watch(
+  () => danmuFilterStore.rules,
+  (rules) => {
+    if (!danmuService.value) {
+      return;
+    }
+    void danmuService.value.updateDanmuFilterRules(rules).catch((error) => {
+      console.warn('[LivePlayer] failed to update worker danmu filter rules', error);
+    });
+  },
+  { deep: true },
+);
 
 watch(
   () => props.streamUrl,

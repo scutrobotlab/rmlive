@@ -108,7 +108,7 @@ function chipContentClass(count: number) {
 </script>
 
 <template>
-  <div class="flex flex-wrap justify-center gap-1.5 sm:gap-2">
+  <div class="flex flex-wrap justify-center gap-1.5 sm:gap-2 select-none">
     <Chip
       v-for="p in reactionItems"
       :key="p.id"
