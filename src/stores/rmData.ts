@@ -9,7 +9,6 @@ import {
   fetchLiveGameInfo,
   fetchRobotData,
   fetchSchedule,
-  pickDefaultZoneId,
   resolveLiveStreamUrl,
   startRmPolling,
   type RmPollingController,
@@ -134,6 +133,35 @@ export const useRmDataStore = defineStore('rm-data', () => {
     return ids;
   });
 
+  function pickAutoZoneIdByPriority(options: ZoneOptionItem[], historyZoneId: string | null): string | null {
+    if (!options.length) {
+      return null;
+    }
+
+    const historyNorm = normalizeZoneId(historyZoneId);
+    const norm = (value: string) => normalizeZoneId(value);
+
+    const historyAndLive =
+      historyNorm !== ''
+        ? options.find((item) => norm(item.value) === historyNorm && item.state === 'live')
+        : null;
+    if (historyAndLive) {
+      return historyAndLive.value;
+    }
+
+    const living = options.find((item) => item.state === 'live');
+    if (living) {
+      return living.value;
+    }
+
+    const inPeriodButOffline = options.find((item) => item.state === 'offline');
+    if (inPeriodButOffline) {
+      return inPeriodButOffline.value;
+    }
+
+    return options[0]?.value ?? null;
+  }
+
   const zoneOptions = computed<ZoneOptionItem[]>(() => {
     const nowEpoch = getNowEpochSeconds();
 
@@ -150,13 +178,13 @@ export const useRmDataStore = defineStore('rm-data', () => {
     }
     return resolveZoneUiState(zone, getNowEpochSeconds());
   });
+  const hasStreamRequestError = computed(() => streamErrorMessage.value.trim().length > 0);
   const canPlaySelectedZone = computed(() => {
     const zone = selectedZone.value;
     if (!zone || zone.qualities.length === 0) {
       return false;
     }
-
-    return zone.liveState === 1 || inferredLiveZoneIdSet.value.has(normalizeZoneId(zone.zoneId));
+    return selectedZoneUiState.value === 'live' && !hasStreamRequestError.value;
   });
   const effectiveStreamUrl = computed(() => (canPlaySelectedZone.value ? streamUrl.value : null));
   const effectiveStreamErrorMessage = computed(() =>
@@ -209,41 +237,22 @@ export const useRmDataStore = defineStore('rm-data', () => {
       return;
     }
 
-    const enabledOptions = options.filter((item) => !item.disabled);
-    const enabledNormSet = new Set(enabledOptions.map((item) => normalizeZoneId(item.value)));
+    const preferred = pickAutoZoneIdByPriority(options, historySelectedZoneId.value);
+    const preferredNorm = normalizeZoneId(preferred);
 
     const currentNorm = normalizeZoneId(selectedZoneId.value);
-    const currentOption = enabledOptions.find((item) => normalizeZoneId(item.value) === currentNorm) ?? null;
-
-    const zones = liveZones.value;
-    const preferred = pickDefaultZoneId(zones, historySelectedZoneId.value);
-    const preferredNorm = preferred != null ? normalizeZoneId(preferred) : '';
-
-    const liveFromMatches = enabledOptions.find((item) => inferredLiveZoneIdSet.value.has(normalizeZoneId(item.value)));
-
-    const inferred = inferredLiveZoneIdSet.value;
-    const shouldPromote =
-      !hasManualZoneSelection.value &&
-      Boolean(liveFromMatches?.value) &&
-      !inferred.has(normalizeZoneId(currentOption?.value));
-
-    if (shouldPromote && preferredNorm) {
-      commitSelectedZoneId(preferred, 'auto');
-      console.log('Auto-promoting zone selection to', preferred);
-    }
-
-    const normAfterPromote = normalizeZoneId(selectedZoneId.value);
-    const inEnabled = normAfterPromote !== '' && enabledNormSet.has(normAfterPromote);
-    const inLiveZones = normAfterPromote !== '' && zones.some((z) => normalizeZoneId(z.zoneId) === normAfterPromote);
+    const currentExists = currentNorm !== '' && options.some((item) => normalizeZoneId(item.value) === currentNorm);
 
     if (!hasManualZoneSelection.value) {
-      if (!inEnabled && preferredNorm) {
+      if (preferredNorm && preferredNorm !== currentNorm) {
+        commitSelectedZoneId(preferred, 'auto');
+      } else if (!currentExists && preferredNorm) {
         commitSelectedZoneId(preferred, 'auto');
       }
       return;
     }
 
-    if (normAfterPromote && !inLiveZones && preferredNorm) {
+    if (!currentExists && preferredNorm) {
       selectedZoneId.value = preferredNorm;
       ensureQualitySelection();
     }
@@ -325,7 +334,7 @@ export const useRmDataStore = defineStore('rm-data', () => {
         return;
       }
 
-      const take = <T,>(r: PromiseSettledResult<T>): T | null => (r.status === 'fulfilled' ? r.value : null);
+      const take = <T>(r: PromiseSettledResult<T>): T | null => (r.status === 'fulfilled' ? r.value : null);
 
       function applyFulfilled<T>(target: Ref<T | null>, r: PromiseSettledResult<T>) {
         const v = take(r);
@@ -372,6 +381,7 @@ export const useRmDataStore = defineStore('rm-data', () => {
         {
           onLiveGameInfo(data) {
             liveGameInfo.value = data;
+            streamErrorMessage.value = '';
           },
           onCurrentAndNextMatches(data) {
             currentAndNextMatches.value = data;
@@ -388,7 +398,7 @@ export const useRmDataStore = defineStore('rm-data', () => {
             ensureZoneSelection();
           },
           onError() {
-            if (!streamUrl.value) {
+            if (selectedZoneUiState.value === 'live') {
               logWarn('stream', 'polling reported error with no active stream url', {
                 selectedZoneId: selectedZoneId.value,
               });

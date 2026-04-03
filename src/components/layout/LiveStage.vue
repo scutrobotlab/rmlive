@@ -33,14 +33,7 @@ const DanmuPanel = defineAsyncComponent(() => import('../danmu/DanmuPanel.vue'))
 const MatchFirepowerBar = defineAsyncComponent(() => import('../panels/MatchFirepowerBar.vue'));
 const MatchReactionStrip = defineAsyncComponent(() => import('../panels/MatchReactionStrip.vue'));
 
-const runningLiving = computed(() => {
-  const match = runningMatchForSelectedZone.value;
-  if (!match) {
-    return false;
-  }
-  const status = String(match.statusRaw ?? '').toUpperCase();
-  return ['STARTED', 'PLAYING'].includes(status);
-});
+const hasCurrentMatch = computed(() => Boolean(runningMatchForSelectedZone.value));
 
 function onRetry() {
   void dataStore.retryLiveStream();
@@ -56,7 +49,7 @@ function onDanmu(msg: DanmuMessage) {
     <Splitter v-if="!isMobile && danmuEnabledAtLoad" layout="horizontal" :style="{ height: '100%' }">
       <SplitterPanel :size="75" :minSize="50">
         <div class="live-column">
-          <MatchFirepowerBar v-if="runningLiving && pkEnabled" />
+          <MatchFirepowerBar v-if="hasCurrentMatch && pkEnabled" />
           <LivePlayer
             :stream-url="effectiveStreamUrl"
             :loading="streamLoading"
@@ -67,7 +60,7 @@ function onDanmu(msg: DanmuMessage) {
             @retry="onRetry"
             @danmu="onDanmu"
           />
-          <div v-if="reactionEnabled" class="mt-2">
+          <div v-if="hasCurrentMatch && reactionEnabled" class="mt-2">
             <MatchReactionStrip />
           </div>
         </div>
@@ -79,7 +72,7 @@ function onDanmu(msg: DanmuMessage) {
     </Splitter>
 
     <div v-else class="live-column">
-      <MatchFirepowerBar v-if="runningLiving && pkEnabled" />
+      <MatchFirepowerBar v-if="hasCurrentMatch && pkEnabled" />
       <LivePlayer
         :stream-url="effectiveStreamUrl"
         :loading="streamLoading"
@@ -90,7 +83,7 @@ function onDanmu(msg: DanmuMessage) {
         @retry="onRetry"
         @danmu="onDanmu"
       />
-      <div v-if="reactionEnabled" class="mt-2">
+      <div v-if="hasCurrentMatch && reactionEnabled" class="mt-2">
         <MatchReactionStrip />
       </div>
 

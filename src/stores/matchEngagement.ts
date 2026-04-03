@@ -81,12 +81,17 @@ export const useMatchEngagementStore = defineStore('matchEngagement', () => {
       return;
     }
     const mk = buildMatchKeyFromView(match);
+    const nextRedCollege = normSchool(match.redTeam.collegeName);
+    const nextBlueCollege = normSchool(match.blueTeam.collegeName);
     if (mk !== currentMatchKey.value) {
       currentMatchKey.value = mk;
-      redCollege.value = normSchool(match.redTeam.collegeName);
-      blueCollege.value = normSchool(match.blueTeam.collegeName);
+      redCollege.value = nextRedCollege;
+      blueCollege.value = nextBlueCollege;
       resetCounts();
+      return;
     }
+    redCollege.value = nextRedCollege;
+    blueCollege.value = nextBlueCollege;
   }
 
   function getSupportSideByCollege(collegeName: string | null | undefined): SupportSide | null {
