@@ -64,7 +64,7 @@ function applyFilters(source: typeof rows.value): typeof rows.value {
 
   if (selectedZone.value.length > 0) {
     const zoneSet = new Set(selectedZone.value);
-    filtered = filtered.filter((item) => zoneSet.has(item.zoneId));
+    filtered = filtered.filter((item) => zoneSet.has(item.zoneId ?? ''));
   }
 
   return filtered;
@@ -84,6 +84,8 @@ const resultRows = computed(() => {
 
   return filtered.slice().sort((a, b) => (b.startedAtTs ?? 0) - (a.startedAtTs ?? 0));
 });
+
+const listChunkSize = computed(() => (props.isMobile ? 16 : 24));
 
 // Watch team options and reset selection if it becomes invalid
 watch(teamOptions, (options) => {
@@ -175,6 +177,8 @@ function onTeamSelect(payload: TeamSelectPayload) {
               :rows="recentMatches"
               :team-group-map="props.teamGroupMap"
               :compact="isMobile"
+              :incremental="false"
+              :active="activeTab === 'recent'"
               @team-select="onTeamSelect"
             />
           </TabPanel>
@@ -186,6 +190,8 @@ function onTeamSelect(payload: TeamSelectPayload) {
               :team-group-map="props.teamGroupMap"
               :compact="isMobile"
               date-order="asc"
+              :chunk-size="listChunkSize"
+              :active="activeTab === 'schedule'"
               @team-select="onTeamSelect"
             />
           </TabPanel>
@@ -197,6 +203,8 @@ function onTeamSelect(payload: TeamSelectPayload) {
               :team-group-map="props.teamGroupMap"
               :compact="isMobile"
               date-order="desc"
+              :chunk-size="listChunkSize"
+              :active="activeTab === 'result'"
               @team-select="onTeamSelect"
             />
           </TabPanel>

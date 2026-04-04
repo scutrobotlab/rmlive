@@ -2,16 +2,11 @@
 import { useRmDataStore } from '@/stores/rmData';
 import { useUiStore } from '@/stores/ui';
 import { storeToRefs } from 'pinia';
-import Skeleton from 'primevue/skeleton';
-import { defineAsyncComponent } from 'vue';
+import SchedulePanel from '../panels/SchedulePanel.vue';
 
 import type { TeamSelectPayload } from '@/types/teamSelect';
 
-interface Props {
-  enabled: boolean;
-}
-
-defineProps<Props>();
+defineProps<{ enabled: boolean }>();
 
 const emit = defineEmits<{
   teamSelect: [payload: TeamSelectPayload];
@@ -23,8 +18,6 @@ const { isMobile } = storeToRefs(uiStore);
 const dataStore = useRmDataStore();
 const { selectedZoneId, teamGroupMap } = storeToRefs(dataStore);
 
-const SchedulePanel = defineAsyncComponent(() => import('../panels/SchedulePanel.vue'));
-
 function onTeamSelect(payload: TeamSelectPayload) {
   emit('teamSelect', payload);
 }
@@ -32,17 +25,13 @@ function onTeamSelect(payload: TeamSelectPayload) {
 
 <template>
   <section id="rm-schedule-panel" class="lower-grid">
-    <div v-if="enabled" class="schedule-cell">
+    <div class="schedule-cell">
       <SchedulePanel
         :selected-zone-id="selectedZoneId"
         :team-group-map="teamGroupMap"
         :is-mobile="isMobile"
         @team-select="onTeamSelect"
       />
-    </div>
-
-    <div v-else class="schedule-placeholder">
-      <Skeleton width="100%" height="18rem" borderRadius="12px" />
     </div>
   </section>
 </template>
@@ -56,10 +45,6 @@ function onTeamSelect(payload: TeamSelectPayload) {
 }
 
 .schedule-cell {
-  min-width: 0;
-}
-
-.schedule-placeholder {
   min-width: 0;
 }
 </style>

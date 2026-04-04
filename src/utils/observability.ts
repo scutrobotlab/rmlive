@@ -49,3 +49,32 @@ export function logWarn(scope: string, message: string, meta?: LogMeta): void {
 
   console.warn(withPrefix(scope, message));
 }
+
+export function markPerformance(name: string): void {
+  if (typeof performance === 'undefined' || typeof performance.mark !== 'function') {
+    return;
+  }
+
+  try {
+    performance.mark(name);
+  } catch {
+    // ignore duplicate marks or unsupported contexts
+  }
+}
+
+export function measurePerformance(name: string, startMark: string, endMark?: string): void {
+  if (typeof performance === 'undefined' || typeof performance.measure !== 'function') {
+    return;
+  }
+
+  try {
+    if (endMark) {
+      performance.measure(name, startMark, endMark);
+      return;
+    }
+
+    performance.measure(name, startMark);
+  } catch {
+    // ignore missing marks or duplicate measures
+  }
+}

@@ -85,4 +85,10 @@ export const useDanmuStore = defineStore('danmu', () => {
     resolveTooltipText,
     resolveTooltipMeta,
   };
+},
+{
+  persist: {
+    key: 'rmlive:danmu-history-cache',
+    pick: ['messages'],
+  },
 });

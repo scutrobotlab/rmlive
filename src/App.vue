@@ -1,19 +1,19 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import Toast from 'primevue/toast';
-import { defineAsyncComponent, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref } from 'vue';
 import TopToolbar from './components/header/TopToolbar.vue';
 import LiveStage from './components/layout/LiveStage.vue';
 import ScheduleArea from './components/layout/ScheduleArea.vue';
 import CurrentMatchPanel from './components/panels/CurrentMatchPanel.vue';
 import { bindDanmuRoomReset } from './composables/danmuLifecycle';
-import { scheduleDeferredMount } from './composables/deferredMount';
 import { requestNotificationPermissionOnLaunch } from './composables/notificationPermissionOnLaunch';
 import { useScheduleNotifyPolling } from './composables/scheduleNotifyClient';
 import { useDanmuStore } from './stores/danmu';
 import { useRmDataStore } from './stores/rmData';
 import { useScheduleNotifyStore } from './stores/scheduleNotify';
 import { useUiStore } from './stores/ui';
+import { markPerformance } from './utils/observability';
 import type { DanmuMessage } from './types/api';
 import type { TeamSelectPayload } from './types/teamSelect';
 
@@ -27,6 +27,7 @@ const scheduleNotifyStore = useScheduleNotifyStore();
 useScheduleNotifyPolling();
 
 const { selectedZoneChatRoomId } = storeToRefs(dataStore);
+const { runningMatchForSelectedZone, streamLoading, liveGameInfo } = storeToRefs(dataStore);
 
 const dataDialogVisible = ref(false);
 const dataDialogTeam = ref<string | null>(null);
@@ -39,12 +40,20 @@ function onDanmuReceived(msg: DanmuMessage) {
 }
 
 function onDanmuReset() {
-  danmuStore.clearMessages();
+  // Keep cached danmu visible during reconnect; fresh history/realtime messages will update it.
 }
 
 bindDanmuRoomReset(selectedZoneChatRoomId, danmuStore.clearMessages);
 
-const enableSecondaryPanels = ref(false);
+const enableSecondaryPanels = ref(true);
+
+const showMatchHero = computed(() => {
+  if (runningMatchForSelectedZone.value) {
+    return true;
+  }
+
+  return streamLoading.value || !liveGameInfo.value;
+});
 
 function onOpenTeamData(payload: string | TeamSelectPayload) {
   const teamName = typeof payload === 'string' ? payload : payload.teamName;
@@ -60,22 +69,16 @@ function onOpenTeamData(payload: string | TeamSelectPayload) {
   dataDialogVisible.value = true;
 }
 
-let stopDeferredMount: (() => void) | null = null;
-
 onMounted(() => {
+  markPerformance('rm-app-on-mounted');
   requestNotificationPermissionOnLaunch();
   void scheduleNotifyStore.syncPrefsToIdb();
   uiStore.initializeUi();
   dataStore.startPolling();
-  stopDeferredMount = scheduleDeferredMount(() => {
-    enableSecondaryPanels.value = true;
-  });
+  markPerformance('rm-data-start-dispatched');
 });
 
 onBeforeUnmount(() => {
-  if (stopDeferredMount) {
-    stopDeferredMount();
-  }
   uiStore.teardownUi();
   dataStore.stopPolling();
 });
@@ -86,7 +89,7 @@ onBeforeUnmount(() => {
     <Toast position="top-right" />
     <TopToolbar />
 
-    <section class="match-hero">
+    <section v-if="showMatchHero" class="match-hero" :class="{ reserving: !runningMatchForSelectedZone }">
       <CurrentMatchPanel :key="dataStore.selectedZoneId ?? 'zone-empty'" @team-select="onOpenTeamData" />
     </section>
 
@@ -118,9 +121,23 @@ onBeforeUnmount(() => {
   margin-bottom: 1rem;
 }
 
+.match-hero.reserving {
+  min-height: 7.5rem;
+}
+
 @media (max-width: 768px) {
   .app-shell {
     padding: 0.65rem;
   }
+
+  .match-hero.reserving {
+    min-height: 6rem;
+  }
+}
+</style>
+
+<style>
+html {
+  scrollbar-gutter: stable both-edges;
 }
 </style>

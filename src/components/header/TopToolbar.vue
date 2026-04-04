@@ -207,6 +207,35 @@ const settingsVisible = ref(false);
   margin-bottom: 1rem;
 }
 
+.top-toolbar :deep(.p-toolbar) {
+  min-height: 3.2rem;
+}
+
+@media (min-width: 769px) {
+  .top-toolbar :deep(.p-toolbar) {
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+
+  .top-toolbar :deep(.p-toolbar-start),
+  .top-toolbar :deep(.p-toolbar-center),
+  .top-toolbar :deep(.p-toolbar-end) {
+    min-width: 0;
+  }
+
+  .top-toolbar :deep(.p-toolbar-center) {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .top-toolbar :deep(.p-toolbar-end) {
+    flex-shrink: 0;
+    gap: 0.2rem;
+    display: inline-flex;
+    align-items: center;
+  }
+}
+
 .toolbar-brand {
   display: flex;
   align-items: center;

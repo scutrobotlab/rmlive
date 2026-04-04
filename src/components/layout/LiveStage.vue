@@ -6,6 +6,7 @@ import { Fieldset } from 'primevue';
 import Splitter from 'primevue/splitter';
 import SplitterPanel from 'primevue/splitterpanel';
 import { computed, defineAsyncComponent } from 'vue';
+import LivePlayer from '../live/LivePlayer.vue';
 import type { DanmuMessage } from '../../types/api';
 
 const dataStore = useRmDataStore();
@@ -14,6 +15,7 @@ const uiStore = useUiStore();
 const {
   effectiveStreamUrl,
   streamLoading,
+  liveGameInfo,
   effectiveStreamErrorMessage,
   playerQualityOptions,
   selectedQualityRes,
@@ -29,12 +31,12 @@ const emit = defineEmits<{
   danmuReset: [];
 }>();
 
-const LivePlayer = defineAsyncComponent(() => import('../live/LivePlayer.vue'));
 const DanmuPanel = defineAsyncComponent(() => import('../danmu/DanmuPanel.vue'));
 const MatchFirepowerBar = defineAsyncComponent(() => import('../panels/MatchFirepowerBar.vue'));
 const MatchReactionStrip = defineAsyncComponent(() => import('../panels/MatchReactionStrip.vue'));
 
 const hasCurrentMatch = computed(() => Boolean(runningMatchForSelectedZone.value));
+const showMatchDependentPlaceholder = computed(() => streamLoading.value || !liveGameInfo.value);
 
 function onRetry() {
   void dataStore.retryLiveStream();
@@ -54,7 +56,8 @@ function onDanmuReset() {
     <Splitter v-if="!isMobile && danmuEnabledAtLoad" layout="horizontal" :style="{ height: '100%' }">
       <SplitterPanel :size="75" :minSize="50">
         <div class="live-column">
-          <MatchFirepowerBar v-if="hasCurrentMatch && pkEnabled" />
+          <MatchFirepowerBar v-if="pkEnabled && hasCurrentMatch" />
+          <div v-else-if="pkEnabled && showMatchDependentPlaceholder" class="firepower-slot" aria-hidden="true" />
           <LivePlayer
             :stream-url="effectiveStreamUrl"
             :loading="streamLoading"
@@ -66,9 +69,12 @@ function onDanmuReset() {
             @danmu="onDanmu"
             @danmu-reset="onDanmuReset"
           />
-          <div v-if="hasCurrentMatch && reactionEnabled">
-            <MatchReactionStrip />
-          </div>
+          <MatchReactionStrip v-if="reactionEnabled && hasCurrentMatch" />
+          <div
+            v-else-if="reactionEnabled && showMatchDependentPlaceholder"
+            class="reaction-slot"
+            aria-hidden="true"
+          />
         </div>
       </SplitterPanel>
 
@@ -78,7 +84,8 @@ function onDanmuReset() {
     </Splitter>
 
     <div v-else class="live-column">
-      <MatchFirepowerBar v-if="hasCurrentMatch && pkEnabled" />
+      <MatchFirepowerBar v-if="pkEnabled && hasCurrentMatch" />
+      <div v-else-if="pkEnabled && showMatchDependentPlaceholder" class="firepower-slot" aria-hidden="true" />
       <LivePlayer
         :stream-url="effectiveStreamUrl"
         :loading="streamLoading"
@@ -90,9 +97,8 @@ function onDanmuReset() {
         @danmu="onDanmu"
         @danmu-reset="onDanmuReset"
       />
-      <div v-if="hasCurrentMatch && reactionEnabled" class="mt-2">
-        <MatchReactionStrip />
-      </div>
+      <MatchReactionStrip v-if="reactionEnabled && hasCurrentMatch" class="mt-2" />
+      <div v-else-if="reactionEnabled && showMatchDependentPlaceholder" class="reaction-slot mt-2" aria-hidden="true" />
 
       <Fieldset v-if="danmuEnabledAtLoad && isMobile" legend="弹幕列表" toggleable class="mobile-danmu-panel">
         <div class="mobile-danmu-wrap">
@@ -113,6 +119,14 @@ function onDanmuReset() {
 
 .live-column {
   min-width: 0;
+}
+
+.firepower-slot {
+  min-height: 2.9rem;
+}
+
+.reaction-slot {
+  min-height: 3.4rem;
 }
 
 .mobile-danmu-panel {

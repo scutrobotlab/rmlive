@@ -6,10 +6,6 @@ import { useRmDataStore } from '@/stores/rmData';
 import { useUiStore } from '@/stores/ui';
 import { isIFrame, useUserInfoStore } from '@/stores/userInfo';
 import { formatStructuredName, resolveDisplaySchool } from '@/utils/danmuView';
-import Artplayer, { Option } from 'artplayer';
-import artplayerPluginChromecast from 'artplayer-plugin-chromecast';
-import artplayerPluginDanmuku, { type Danmu } from 'artplayer-plugin-danmuku';
-import Hls from 'hls.js/dist/hls.js';
 import { storeToRefs } from 'pinia';
 import Button from 'primevue/button';
 import Message from 'primevue/message';
@@ -18,6 +14,10 @@ import { useToast } from 'primevue/usetoast';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { DanmuAttributes, DanmuMessage } from '../../types/api';
 import DanmuFilterDialog from '../dialogs/DanmuFilterDialog.vue';
+import { markPerformance } from '../../utils/observability';
+import type Artplayer from 'artplayer';
+import type { Option } from 'artplayer';
+import type { Danmu } from 'artplayer-plugin-danmuku';
 
 interface QualityOption {
   label: string;
@@ -51,13 +51,15 @@ const container = ref<HTMLDivElement | null>(null);
 let player: Artplayer | null = null;
 let playerReady = false;
 /** Hls instance for current stream; must be torn down before each new customType load and on player destroy. */
-let liveHls: InstanceType<typeof Hls> | null = null;
+let liveHls: { destroy: () => void } | null = null;
 let danmukuPlugin: any = null;
 const pendingDanmuQueue: DanmuMessage[] = [];
 const danmuService = ref<DanmuService | null>(null);
 let currentRoomId: string | null = null;
+let pendingRoomId: string | null = null;
 let roomSwitchToken = 0;
 let connectingService: DanmuService | null = null;
+let playerMountToken = 0;
 
 const danmuFilterStore = useDanmuFilterStore();
 const matchEngagementStore = useMatchEngagementStore();
@@ -243,6 +245,7 @@ async function destroyDanmu() {
 }
 
 function destroyPlayer() {
+  playerMountToken += 1;
   destroyAttachedHls();
   if (player) {
     player.destroy(false);
@@ -299,6 +302,29 @@ function createDebugDanmu(text?: string): DanmuMessage {
     badge: 'DEBUG',
     source: 'realtime',
   };
+}
+
+function syncDanmuConnection() {
+  if (!danmuEnabledAtLoad) {
+    currentRoomId = null;
+    pendingRoomId = null;
+    roomSwitchToken += 1;
+    void destroyDanmu();
+    return;
+  }
+
+  if (!playerReady) {
+    return;
+  }
+
+  if (!pendingRoomId) {
+    currentRoomId = null;
+    roomSwitchToken += 1;
+    void destroyDanmu();
+    return;
+  }
+
+  void initDanmu(pendingRoomId);
 }
 
 function exposeDanmuDebugApi() {
@@ -446,11 +472,29 @@ async function mountPlayer(url: string) {
   }
 
   destroyPlayer();
+  const mountToken = ++playerMountToken;
+  markPerformance('rm-player-mount-start');
+
+  const [artplayerModule, hlsModule, danmukuModule, chromecastModule] = await Promise.all([
+    import('artplayer'),
+    import('hls.js/dist/hls.js'),
+    danmuEnabledAtLoad ? import('artplayer-plugin-danmuku') : Promise.resolve(null),
+    uiStore.isMobile ? Promise.resolve(null) : import('artplayer-plugin-chromecast'),
+  ]);
+
+  if (mountToken !== playerMountToken || !container.value) {
+    return;
+  }
+
+  const ArtplayerCtor = artplayerModule.default;
+  const HlsCtor = hlsModule.default;
+  const artplayerPluginDanmuku = danmukuModule?.default;
+  const artplayerPluginChromecast = chromecastModule?.default;
 
   const qualityItems = buildQualityItems();
 
   const plugins: any[] = [];
-  if (danmuEnabledAtLoad) {
+  if (danmuEnabledAtLoad && artplayerPluginDanmuku) {
     plugins.push(
       artplayerPluginDanmuku({
         danmuku: [],
@@ -468,7 +512,7 @@ async function mountPlayer(url: string) {
   }
 
   // PC端启用 Chromecast
-  if (!uiStore.isMobile) {
+  if (!uiStore.isMobile && artplayerPluginChromecast) {
     plugins.push(artplayerPluginChromecast({}));
   }
 
@@ -519,17 +563,18 @@ async function mountPlayer(url: string) {
     customType: {
       m3u8(video: HTMLVideoElement, m3u8Url: string) {
         destroyAttachedHls();
-        if (Hls.isSupported()) {
-          const hls = new Hls({
+        if (HlsCtor.isSupported()) {
+          const hls = new HlsCtor({
             lowLatencyMode: true,
             liveDurationInfinity: true,
             liveSyncMode: 'edge',
-            backBufferLength: 8,
-            maxBufferLength: 10,
-            maxMaxBufferLength: 30,
-            liveSyncDurationCount: 3,
+            backBufferLength: 4,
+            maxBufferLength: 6,
+            maxMaxBufferLength: 18,
+            liveSyncDurationCount: 1,
             maxLiveSyncPlaybackRate: 1.0,
             liveSyncOnStallIncrease: 0.25,
+            startLevel: -1,
           });
           liveHls = hls;
           hls.loadSource(m3u8Url);
@@ -541,14 +586,20 @@ async function mountPlayer(url: string) {
     },
   };
 
-  player = new Artplayer(playerOptions);
+  player = new ArtplayerCtor(playerOptions);
   danmukuPlugin = danmuEnabledAtLoad ? (player as any).plugins?.artplayerPluginDanmuku : null;
 
   // Some browsers still require an explicit play attempt after source mount.
   player.on('ready', () => {
+    if (mountToken !== playerMountToken) {
+      return;
+    }
+
     playerReady = true;
+    markPerformance('rm-player-ready');
     danmukuPlugin = danmuEnabledAtLoad ? (player as any).plugins?.artplayerPluginDanmuku : null;
     updateQualityControl();
+    syncDanmuConnection();
     flushPendingDanmu();
     try {
       player?.play();
@@ -572,6 +623,8 @@ async function applyStreamUrl(url: string) {
     return;
   }
 
+  markPerformance('rm-player-url-applied');
+
   if (player && playerReady) {
     try {
       await exitPipIfNeeded();
@@ -589,6 +642,7 @@ async function applyStreamUrl(url: string) {
 watch(
   () => props.chatRoomId,
   (roomId) => {
+    pendingRoomId = roomId ?? null;
     if (!danmuEnabledAtLoad) {
       currentRoomId = null;
       roomSwitchToken += 1;
@@ -596,13 +650,7 @@ watch(
       return;
     }
     pendingDanmuQueue.length = 0;
-    if (roomId) {
-      void initDanmu(roomId);
-    } else {
-      currentRoomId = null;
-      roomSwitchToken += 1;
-      void destroyDanmu();
-    }
+    syncDanmuConnection();
   },
   { immediate: true },
 );

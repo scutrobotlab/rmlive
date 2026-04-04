@@ -390,9 +390,9 @@ class ImRuntime {
     };
 
     const eventMessageName = typeof Event?.MESSAGE === 'string' && Event.MESSAGE.trim() ? Event.MESSAGE : 'message';
-    this.danmuClient.on(eventMessageName, this.danmuClientMessageHandler);
+    this.danmuClient?.on(eventMessageName, this.danmuClientMessageHandler);
     if (eventMessageName !== 'message') {
-      this.danmuClient.on('message', this.danmuClientMessageHandler);
+      this.danmuClient?.on('message', this.danmuClientMessageHandler);
     }
     return this.danmuClient as IMClient;
   }

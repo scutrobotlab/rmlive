@@ -11,11 +11,14 @@ import type {
 } from '../types/api';
 import type { GroupSection, TeamGroupMeta } from '../utils/groupView';
 import type { MatchView } from '../utils/matchView';
-import { logInfo, logWarn } from '../utils/observability';
+import { logInfo, logWarn, markPerformance, measurePerformance } from '../utils/observability';
 import type { PlayerQualityOption } from '../utils/rmStreamView';
 import { normalizeZoneId, type ZoneOptionItem, type ZoneUiState } from '../utils/zoneView';
 import type {
+  RmDataBootstrapPayload,
   RmDataInitPayload,
+  RmDataPatchPayload,
+  RmDataSnapshotPatch,
   RmDataSnapshot,
   RmDataWorkerIncomingMessage,
   RmDataWorkerOutgoingMessage,
@@ -57,6 +60,7 @@ export const useRmDataStore = defineStore('rm-data', () => {
   let hasManualZoneSelection = false;
   let visibilityListenerAttached = false;
   let workerRestarting = false;
+  let latestSnapshotVersion = 0;
 
   function applySnapshot(snapshot: RmDataSnapshot) {
     liveGameInfo.value = snapshot.liveGameInfo;
@@ -84,6 +88,98 @@ export const useRmDataStore = defineStore('rm-data', () => {
     selectedZoneChatRoomId.value = snapshot.selectedZoneChatRoomId;
     scheduleMatchRows.value = snapshot.scheduleMatchRows;
     runningMatchForSelectedZone.value = snapshot.runningMatchForSelectedZone;
+  }
+
+  function applySnapshotPatch(patch: RmDataSnapshotPatch) {
+    const keys = Object.keys(patch) as Array<keyof RmDataSnapshotPatch>;
+
+    for (const key of keys) {
+      const value = patch[key];
+      switch (key) {
+        case 'liveGameInfo':
+          liveGameInfo.value = (value as RmDataSnapshot['liveGameInfo']) ?? null;
+          break;
+        case 'currentAndNextMatches':
+          currentAndNextMatches.value = (value as RmDataSnapshot['currentAndNextMatches']) ?? null;
+          break;
+        case 'groupsOrder':
+          groupsOrder.value = (value as RmDataSnapshot['groupsOrder']) ?? null;
+          break;
+        case 'groupRankInfo':
+          groupRankInfo.value = (value as RmDataSnapshot['groupRankInfo']) ?? null;
+          break;
+        case 'robotData':
+          robotData.value = (value as RmDataSnapshot['robotData']) ?? null;
+          break;
+        case 'schedule':
+          schedule.value = (value as RmDataSnapshot['schedule']) ?? null;
+          break;
+        case 'selectedZoneId':
+          selectedZoneId.value = (value as RmDataSnapshot['selectedZoneId']) ?? null;
+          break;
+        case 'effectiveSelectedZoneId':
+          effectiveSelectedZoneId.value = (value as RmDataSnapshot['effectiveSelectedZoneId']) ?? null;
+          break;
+        case 'selectedQualityRes':
+          selectedQualityRes.value = (value as RmDataSnapshot['selectedQualityRes']) ?? null;
+          break;
+        case 'selectedZoneName':
+          selectedZoneName.value = (value as RmDataSnapshot['selectedZoneName']) ?? null;
+          break;
+        case 'selectedZoneUiState':
+          selectedZoneUiState.value = (value as RmDataSnapshot['selectedZoneUiState']) ?? null;
+          break;
+        case 'streamLoading':
+          streamLoading.value = Boolean(value);
+          break;
+        case 'streamErrorMessage':
+          streamErrorMessage.value = String(value ?? '');
+          break;
+        case 'zoneOptions':
+          zoneOptions.value = (value as RmDataSnapshot['zoneOptions']) ?? [];
+          break;
+        case 'effectiveStreamUrl':
+          effectiveStreamUrl.value = (value as RmDataSnapshot['effectiveStreamUrl']) ?? null;
+          break;
+        case 'effectiveStreamErrorMessage':
+          effectiveStreamErrorMessage.value = String(value ?? '');
+          break;
+        case 'groupSections':
+          groupSections.value = (value as RmDataSnapshot['groupSections']) ?? [];
+          break;
+        case 'teamGroupMap':
+          teamGroupMap.value = (value as RmDataSnapshot['teamGroupMap']) ?? {};
+          break;
+        case 'scheduleEventTitle':
+          scheduleEventTitle.value = String(value ?? '');
+          break;
+        case 'playerQualityOptions':
+          playerQualityOptions.value = (value as RmDataSnapshot['playerQualityOptions']) ?? [];
+          break;
+        case 'selectedZoneChatRoomId':
+          selectedZoneChatRoomId.value = (value as RmDataSnapshot['selectedZoneChatRoomId']) ?? null;
+          break;
+        case 'scheduleMatchRows':
+          scheduleMatchRows.value = (value as RmDataSnapshot['scheduleMatchRows']) ?? [];
+          break;
+        case 'runningMatchForSelectedZone':
+          runningMatchForSelectedZone.value = (value as RmDataSnapshot['runningMatchForSelectedZone']) ?? null;
+          break;
+      }
+    }
+  }
+
+  function applyBootstrapPayload(payload: RmDataBootstrapPayload) {
+    latestSnapshotVersion = payload.version;
+    applySnapshot(payload.snapshot);
+  }
+
+  function applyPatchPayload(payload: RmDataPatchPayload) {
+    if (payload.version <= latestSnapshotVersion) {
+      return;
+    }
+    latestSnapshotVersion = payload.version;
+    applySnapshotPatch(payload.patch);
   }
 
   function buildInitPayload(): RmDataInitPayload {
@@ -142,7 +238,13 @@ export const useRmDataStore = defineStore('rm-data', () => {
       }
 
       if (data.type === 'BOOTSTRAP_STATE' || data.type === 'PATCH_STATE') {
-        applySnapshot(data.payload);
+        if (data.type === 'BOOTSTRAP_STATE') {
+          applyBootstrapPayload(data.payload);
+          markPerformance('rm-data-bootstrap-received');
+          measurePerformance('rm-startup-to-bootstrap', 'rm-app-mount-start', 'rm-data-bootstrap-received');
+        } else {
+          applyPatchPayload(data.payload);
+        }
         return;
       }
 
@@ -199,7 +301,9 @@ export const useRmDataStore = defineStore('rm-data', () => {
 
   function startWorker() {
     isStopping = false;
+    latestSnapshotVersion = 0;
     const currentWorker = spawnWorker();
+    markPerformance('rm-data-worker-init-dispatched');
     currentWorker.postMessage({ type: 'INIT', payload: buildInitPayload() });
     attachVisibilityListener();
     setVisibilityInWorker();
@@ -246,8 +350,14 @@ export const useRmDataStore = defineStore('rm-data', () => {
   function startPolling() {
     stopWorker();
     hasManualZoneSelection = false;
-    streamLoading.value = true;
-    streamErrorMessage.value = '';
+    const hasWarmCache =
+      Boolean(effectiveStreamUrl.value) ||
+      Boolean(runningMatchForSelectedZone.value) ||
+      scheduleMatchRows.value.length > 0;
+    streamLoading.value = !hasWarmCache;
+    if (!hasWarmCache) {
+      streamErrorMessage.value = '';
+    }
     startWorker();
   }
 
@@ -289,4 +399,26 @@ export const useRmDataStore = defineStore('rm-data', () => {
     stopPolling,
     retryLiveStream,
   };
+},
+{
+  persist: {
+    key: 'rmlive:rm-data-cache',
+    pick: [
+      'liveGameInfo',
+      'selectedZoneId',
+      'effectiveSelectedZoneId',
+      'selectedQualityRes',
+      'selectedZoneName',
+      'selectedZoneUiState',
+      'zoneOptions',
+      'effectiveStreamUrl',
+      'effectiveStreamErrorMessage',
+      'playerQualityOptions',
+      'selectedZoneChatRoomId',
+      'scheduleEventTitle',
+      'scheduleMatchRows',
+      'runningMatchForSelectedZone',
+      'teamGroupMap',
+    ],
+  },
 });
