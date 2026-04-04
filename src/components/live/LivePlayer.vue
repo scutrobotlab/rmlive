@@ -133,6 +133,22 @@ function resolveSpecialDanmuStyleBySchool(message: DanmuMessage): TrackDanmuStyl
   return undefined;
 }
 
+function buildLocalEchoDanmu(text: string, attrs: DanmuAttributes): DanmuMessage {
+  const now = Date.now();
+  return {
+    id: `local-${now}-${Math.random().toString(36).slice(2, 8)}`,
+    timestamp: now,
+    text,
+    username: String(attrs.username ?? ''),
+    nickname: attrs.nickname,
+    schoolName: attrs.schoolName,
+    badge: attrs.badge,
+    source: 'realtime',
+    ...(attrs.mode !== undefined ? { mode: attrs.mode } : {}),
+    ...(attrs.color ? { color: attrs.color } : {}),
+  };
+}
+
 async function sendDanmuByRealtime(d: Danmu): Promise<boolean> {
   const content = String(d?.text ?? '').trim();
   if (!content) {
@@ -175,12 +191,14 @@ async function sendDanmuByRealtime(d: Danmu): Promise<boolean> {
 
   try {
     await danmuService.value.sendMessage(content, myAttributes);
+    // Return true so the plugin clears input and emits to track immediately.
+    emit('danmu', buildLocalEchoDanmu(content, myAttributes));
+    return true;
   } catch (error) {
     console.error('[LivePlayer] Failed to send danmu:', error);
     toast.add({ severity: 'error', summary: '发送失败', detail: '弹幕发送失败，请稍后重试' });
+    return false;
   }
-
-  return false; // 阻止 artplayer 插件的默认发送行为
 }
 
 function destroyAttachedHls() {

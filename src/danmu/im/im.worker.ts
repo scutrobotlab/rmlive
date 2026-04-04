@@ -22,7 +22,19 @@ type RuntimeConfig = {
 type RoomBinding = {
   conversation: Conversation;
   messageHandler: (message: Message) => void;
+  eventNames: string[];
 };
+
+function isInvalidMessagingTarget(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const e = error as { message?: unknown; code?: unknown };
+  const message = String(e.message ?? '');
+  const code = String(e.code ?? '');
+  return message.includes('INVALID_MESSAGING_TARGET') || code === 'INVALID_MESSAGING_TARGET';
+}
 
 type EngagementState = {
   matchKey: string;
@@ -43,6 +55,7 @@ type EngagementState = {
 const HISTORY_WINDOW_MS = 60 * 60 * 1000;
 const HISTORY_PAGE_LIMIT = 100;
 const SNAPSHOT_FLUSH_INTERVAL_MS = 50;
+const DANMU_EMIT_DEDUP_CAP = 2000;
 
 let runtime: ImRuntime | null = null;
 const workerScope = self as unknown as DedicatedWorkerGlobalScope;
@@ -51,12 +64,15 @@ class ImRuntime {
   private config: RuntimeConfig;
   private emitEvent: (event: WorkerEvent) => void;
   private realtime: any = null;
-  private client: IMClient | null = null;
+  private danmuClient: IMClient | null = null;
+  private danmuClientMessageHandler: ((message: Message, conversation?: Conversation) => void) | null = null;
+  private engagementClient: IMClient | null = null;
   private roomBindings = new Map<string, RoomBinding>();
   private engagementBinding: RoomBinding | null = null;
   private engagementStates = new Map<string, EngagementState>();
   private activeMatchKey: string | null = null;
   private danmuFilterRules: DanmuFilterRules = normalizeDanmuFilterRules(undefined);
+  private emittedDanmuMessageIds = new Set<string>();
   private snapshotFlushTimer: ReturnType<typeof setInterval>;
 
   constructor(config: RuntimeConfig, emitEvent: (event: WorkerEvent) => void) {
@@ -67,16 +83,56 @@ class ImRuntime {
     }, SNAPSHOT_FLUSH_INTERVAL_MS);
   }
 
+  private resolveMessageEventNames(eventMessage?: unknown): string[] {
+    const names = new Set<string>();
+    if (typeof eventMessage === 'string' && eventMessage.trim()) {
+      names.add(eventMessage.trim());
+    }
+    names.add('message');
+    return Array.from(names);
+  }
+
+  private attachMessageHandler(binding: RoomBinding) {
+    for (const name of binding.eventNames) {
+      binding.conversation.on(name, binding.messageHandler);
+    }
+  }
+
+  private detachMessageHandler(binding: RoomBinding) {
+    for (const name of binding.eventNames) {
+      binding.conversation.off(name, binding.messageHandler);
+    }
+  }
+
   async connectRoom(roomId: string, includeHistory: boolean): Promise<void> {
+    const existing = this.roomBindings.get(roomId);
+    if (existing) {
+      await this.ensureEngagementSubscription();
+
+      if (includeHistory && typeof existing.conversation.queryMessages === 'function') {
+        const history = await existing.conversation.queryMessages({ limit: 80 });
+        if (Array.isArray(history)) {
+          for (const message of history.slice().reverse()) {
+            this.emitDanmuFromMessage(message, 'history');
+          }
+        }
+      }
+      return;
+    }
+
     const { Event } = await loadLeancloudRuntime();
-    const conversation = await this.joinConversation(roomId);
+    const conversation = await this.joinDanmuConversation(roomId);
 
     if (!this.roomBindings.has(roomId)) {
-      const messageHandler = (message: Message) => {
-        this.emitDanmuFromMessage(message, 'realtime');
+      const binding: RoomBinding = {
+        conversation,
+        messageHandler: (message: Message) => {
+          this.emitDanmuFromMessage(message, 'realtime');
+        },
+        eventNames: this.resolveMessageEventNames(Event?.MESSAGE),
       };
-      conversation.on(Event.MESSAGE, messageHandler);
-      this.roomBindings.set(roomId, { conversation, messageHandler });
+      this.attachMessageHandler(binding);
+      this.roomBindings.set(roomId, binding);
     }
 
     await this.ensureEngagementSubscription();
@@ -92,13 +148,15 @@ class ImRuntime {
   }
 
   async disconnectRoom(roomId: string): Promise<void> {
-    const { Event } = await loadLeancloudRuntime();
     const binding = this.roomBindings.get(roomId);
     if (!binding) {
       return;
     }
 
-    binding.conversation.off(Event.MESSAGE, binding.messageHandler);
+    // Delete first to prevent concurrent send() from using a leaving conversation.
+    this.roomBindings.delete(roomId);
+
+    this.detachMessageHandler(binding);
     try {
       if (typeof binding.conversation.leave === 'function') {
         await binding.conversation.leave();
@@ -106,7 +164,6 @@ class ImRuntime {
     } catch {
       // ignore leave failures
     }
-    this.roomBindings.delete(roomId);
   }
 
   async fetchViewerCount(roomId: string): Promise<number> {
@@ -163,7 +220,29 @@ class ImRuntime {
     }
     const message = new TextMessage(text);
     message.setAttributes(attrs);
-    await binding.conversation.send(message);
+    try {
+      await binding.conversation.send(message);
+      return;
+    } catch (error) {
+      if (!isInvalidMessagingTarget(error)) {
+        throw error;
+      }
+    }
+
+    // Recover once: re-resolve and re-join the room, then retry send.
+    this.detachMessageHandler(binding);
+    const recovered = await this.joinDanmuConversation(roomId);
+    const recoveredBinding: RoomBinding = {
+      conversation: recovered,
+      messageHandler: binding.messageHandler,
+      eventNames: binding.eventNames,
+    };
+    this.attachMessageHandler(recoveredBinding);
+    this.roomBindings.set(roomId, recoveredBinding);
+
+    const retryMessage = new TextMessage(text);
+    retryMessage.setAttributes(attrs);
+    await recovered.send(retryMessage);
   }
 
   async sendSupport(matchKey: string, collegeName: string): Promise<void> {
@@ -176,7 +255,19 @@ class ImRuntime {
       'rmlive:msg_for_team': encodeTeamTarget(matchKey, collegeName),
     };
     message.setAttributes(attrs);
-    const sent = await engagement.send(message);
+    let sent: unknown;
+    try {
+      sent = await engagement.send(message);
+    } catch (error) {
+      if (!isInvalidMessagingTarget(error)) {
+        throw error;
+      }
+
+      const rebound = await this.rebindEngagementConversation();
+      const retry = new TextMessage(MSG_TYPE_SUPPORT_TEAM);
+      retry.setAttributes(attrs);
+      sent = await rebound.send(retry);
+    }
     this.syncLocalEngagementAfterSend(attrs, sent, 'engagement-send-support');
   }
 
@@ -190,7 +281,19 @@ class ImRuntime {
       'rmlive:reaction_id': reactionId,
     };
     message.setAttributes(attrs);
-    const sent = await engagement.send(message);
+    let sent: unknown;
+    try {
+      sent = await engagement.send(message);
+    } catch (error) {
+      if (!isInvalidMessagingTarget(error)) {
+        throw error;
+      }
+
+      const rebound = await this.rebindEngagementConversation();
+      const retry = new TextMessage(MSG_TYPE_MATCH_REACTION);
+      retry.setAttributes(attrs);
+      sent = await rebound.send(retry);
+    }
     this.syncLocalEngagementAfterSend(attrs, sent, 'engagement-send-reaction');
   }
 
@@ -203,42 +306,139 @@ class ImRuntime {
     }
 
     if (this.engagementBinding) {
-      const { conversation, messageHandler } = this.engagementBinding;
-      conversation.off(Event.MESSAGE, messageHandler);
+      this.detachMessageHandler(this.engagementBinding);
       this.engagementBinding = null;
     }
 
-    if (this.client) {
-      await this.client.close();
-      this.client = null;
+    if (this.danmuClient) {
+      if (this.danmuClientMessageHandler) {
+        const eventMessageName =
+          typeof Event?.MESSAGE === 'string' && Event.MESSAGE.trim() ? Event.MESSAGE : 'message';
+        this.danmuClient.off(eventMessageName, this.danmuClientMessageHandler);
+        if (eventMessageName !== 'message') {
+          this.danmuClient.off('message', this.danmuClientMessageHandler);
+        }
+        this.danmuClientMessageHandler = null;
+      }
+      await this.danmuClient.close();
+      this.danmuClient = null;
     }
+
+    if (this.engagementClient) {
+      await this.engagementClient.close();
+      this.engagementClient = null;
+    }
+
+    this.emittedDanmuMessageIds.clear();
+    this.realtime = null;
   }
 
-  private async ensureClient(): Promise<IMClient> {
-    const existingClient = this.client;
+  private async ensureRealtime(): Promise<any> {
+    if (this.realtime) {
+      return this.realtime;
+    }
+
+    const { Realtime } = await loadLeancloudRuntime();
+    this.realtime = new Realtime({
+      appId: this.config.appId,
+      appKey: this.config.appKey,
+      server: {
+        RTMRouter: 'https://router-g0-push.leancloud.cn',
+        api: 'https://api.leancloud.cn',
+      },
+    });
+
+    return this.realtime;
+  }
+
+  private async ensureDanmuClient(): Promise<IMClient> {
+    const existingClient = this.danmuClient;
     if (existingClient) {
       return existingClient;
     }
 
-    if (!this.realtime) {
-      const { Realtime } = await loadLeancloudRuntime();
-      this.realtime = new Realtime({
-        appId: this.config.appId,
-        appKey: this.config.appKey,
-        server: {
-          RTMRouter: 'https://router-g0-push.leancloud.cn',
-          api: 'https://api.leancloud.cn',
-        },
-      });
-    }
+    const realtime = await this.ensureRealtime();
+    this.danmuClient = await realtime.createIMClient(this.config.clientId);
 
-    this.client = await this.realtime.createIMClient(this.config.clientId);
-    return this.client as IMClient;
+    const { Event } = await loadLeancloudRuntime();
+    this.danmuClientMessageHandler = (message: Message, conversation?: Conversation) => {
+      const messageId = this.toStableMessageId(message, 'client-live');
+      const incomingConversationId = String(
+        (conversation as any)?.id ??
+          (message as any)?.conversation?.id ??
+          (message as any)?.conversationId ??
+          (message as any)?.cid ??
+          '',
+      );
+
+      if (!incomingConversationId) {
+        // Some LeanCloud runtimes do not pass conversation id in client-level callbacks.
+        // When there is exactly one danmu room bound, treat it as the active room message.
+        if (this.roomBindings.size === 1) {
+          this.emitDanmuFromMessage(message, 'realtime');
+        }
+        return;
+      }
+
+      for (const binding of this.roomBindings.values()) {
+        const bindingConversationId = String((binding.conversation as any)?.id ?? '');
+        if (bindingConversationId && bindingConversationId === incomingConversationId) {
+          this.emitDanmuFromMessage(message, 'realtime');
+          return;
+        }
+      }
+    };
+
+    const eventMessageName = typeof Event?.MESSAGE === 'string' && Event.MESSAGE.trim() ? Event.MESSAGE : 'message';
+    this.danmuClient.on(eventMessageName, this.danmuClientMessageHandler);
+    if (eventMessageName !== 'message') {
+      this.danmuClient.on('message', this.danmuClientMessageHandler);
+    }
+    return this.danmuClient as IMClient;
   }
 
-  private async joinConversation(conversationId: string): Promise<Conversation> {
-    const client = await this.ensureClient();
-    const conversation = await (client as any).getConversation(conversationId, true);
+  private async ensureEngagementClient(): Promise<IMClient> {
+    const existingClient = this.engagementClient;
+    if (existingClient) {
+      return existingClient;
+    }
+
+    const realtime = await this.ensureRealtime();
+    this.engagementClient = await realtime.createIMClient(`${this.config.clientId}:engagement`);
+    return this.engagementClient as IMClient;
+  }
+
+  private async resolveChatRoomById(client: IMClient, conversationId: string): Promise<Conversation> {
+    const typedClient = client as any;
+    try {
+      const room = await typedClient
+        .getChatRoomQuery()
+        .equalTo('objectId', conversationId)
+        .compact(true)
+        .limit(1)
+        .first();
+      if (room) {
+        return room as Conversation;
+      }
+    } catch {
+      // Fallback to generic conversation lookup below.
+    }
+
+    return (await typedClient.getConversation(conversationId, true)) as Conversation;
+  }
+
+  private async joinDanmuConversation(conversationId: string): Promise<Conversation> {
+    const client = await this.ensureDanmuClient();
+    const conversation = await this.resolveChatRoomById(client, conversationId);
+    if (conversation?.join) {
+      await conversation.join();
+    }
+    return conversation as Conversation;
+  }
+
+  private async joinEngagementConversation(conversationId: string): Promise<Conversation> {
+    const client = await this.ensureEngagementClient();
+    const conversation = await this.resolveChatRoomById(client, conversationId);
     if (conversation?.join) {
       await conversation.join();
     }
@@ -250,7 +450,28 @@ class ImRuntime {
       return this.engagementBinding.conversation;
     }
 
-    return this.joinConversation(this.config.engagementChatRoomId);
+    return this.joinEngagementConversation(this.config.engagementChatRoomId);
+  }
+
+  private async rebindEngagementConversation(): Promise<Conversation> {
+    if (this.engagementBinding) {
+      this.detachMessageHandler(this.engagementBinding);
+      try {
+        if (typeof this.engagementBinding.conversation.leave === 'function') {
+          await this.engagementBinding.conversation.leave();
+        }
+      } catch {
+        // ignore leave failures during rebind
+      }
+      this.engagementBinding = null;
+    }
+
+    await this.ensureEngagementSubscription();
+    if (!this.engagementBinding) {
+      throw new Error('Failed to rebind engagement conversation');
+    }
+
+    return this.engagementBinding.conversation;
   }
 
   private async ensureEngagementSubscription(): Promise<void> {
@@ -274,8 +495,13 @@ class ImRuntime {
       this.emitEvent({ type: 'engagement', payload: parsed });
       this.applyRealtimeEngagementInbound(parsed);
     };
-    conversation.on(Event.MESSAGE, messageHandler);
-    this.engagementBinding = { conversation, messageHandler };
+    const binding: RoomBinding = {
+      conversation,
+      messageHandler,
+      eventNames: this.resolveMessageEventNames(Event?.MESSAGE),
+    };
+    this.attachMessageHandler(binding);
+    this.engagementBinding = binding;
   }
 
   private async hydrateEngagementState(state: EngagementState): Promise<void> {
@@ -486,10 +712,26 @@ class ImRuntime {
   }
 
   private emitDanmuFromMessage(message: Message, source: 'realtime' | 'history') {
+    const messageId = this.toStableMessageId(message, source);
+
+    // Realtime messages can arrive from both conversation-level and client-level listeners.
+    // De-duplicate by message id before converting to UI events.
+    if (source === 'realtime') {
+      if (this.emittedDanmuMessageIds.has(messageId)) {
+        return;
+      }
+
+      this.emittedDanmuMessageIds.add(messageId);
+      if (this.emittedDanmuMessageIds.size > DANMU_EMIT_DEDUP_CAP) {
+        this.emittedDanmuMessageIds.clear();
+        this.emittedDanmuMessageIds.add(messageId);
+      }
+    }
+
     const attrs = this.extractAttributes(message);
     const parsed = parseEngagementFromAttributes(
       attrs,
-      this.toStableMessageId(message, source),
+      messageId,
       this.toTimestamp((message as any).timestamp),
     );
     if (parsed && source === 'realtime') {
@@ -504,7 +746,7 @@ class ImRuntime {
 
     const style = this.normalizeStyle(attrs);
     const danmu: DanmuMessage = {
-      id: this.toStableMessageId(message, source),
+      id: messageId,
       timestamp: this.toTimestamp((message as any).timestamp),
       text: rawText,
       username: String(attrs.username ?? '匿名用户'),
@@ -599,9 +841,10 @@ function emitEvent(event: WorkerEvent) {
 function toErrorPayload(error: unknown): { message: string; code?: string } {
   if (error && typeof error === 'object') {
     const e = error as { message?: string; code?: string };
+    const rawCode = (e as { code?: unknown }).code;
     return {
       message: String(e.message ?? 'Unknown worker error'),
-      code: typeof e.code === 'string' ? e.code : undefined,
+      code: rawCode == null ? undefined : String(rawCode),
     };
   }
   return { message: String(error ?? 'Unknown worker error') };
