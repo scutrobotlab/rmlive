@@ -3,10 +3,7 @@ import reactionCatalog from '@/assets/reactions.json';
 import { useMatchEngagementStore } from '@/stores/matchEngagement';
 import { useThrottleFn } from '@vueuse/core';
 import { storeToRefs } from 'pinia';
-import { BlockUI } from 'primevue';
-import Button from 'primevue/button';
 import Chip from 'primevue/chip';
-import Popover from 'primevue/popover';
 import { computed, onBeforeUnmount, ref } from 'vue';
 
 const engagement = useMatchEngagementStore();
@@ -31,7 +28,6 @@ const bumpReaction = useThrottleFn((id: string) => {
 const burst = ref<ReactionBurst | null>(null);
 const burstVisible = ref(false);
 const isBurstAnimating = ref(false);
-const reactionPicker = ref<InstanceType<typeof Popover> | null>(null);
 let burstHideTimer: ReturnType<typeof setTimeout> | null = null;
 let burstClearTimer: ReturnType<typeof setTimeout> | null = null;
 let burstUnlockTimer: ReturnType<typeof setTimeout> | null = null;
@@ -99,19 +95,6 @@ const reactionItems = computed<ReactionItem[]>(() => {
   }));
 });
 
-const visibleReactionItems = computed<ReactionItem[]>(() => {
-  return reactionItems.value.filter((item) => item.count > 0);
-});
-
-function toggleReactionPicker(event: Event) {
-  reactionPicker.value?.toggle(event);
-}
-
-function onPickerReactionClick(item: ReactionItem) {
-  onReactionClick(item);
-  reactionPicker.value?.hide();
-}
-
 function chipRootClass(count: number) {
   return [
     'cursor-pointer shrink-0 select-none !rounded-full !px-2 !py-1.5 sm:!px-2.5 sm:!py-1.5 md:!px-3 md:!py-2 lg:!px-3.5 lg:!py-2',
@@ -125,41 +108,14 @@ function chipContentClass(count: number) {
 </script>
 
 <template>
-  <BlockUI class="flex flex-wrap justify-center gap-1.5 sm:gap-2 select-none" :blocked="isBurstAnimating">
-    <Button
-      rounded
-      raised
-      variant="outlined"
-      severity="contrast"
-      aria-label="选择表情"
-      icon="pi pi-face-smile"
-      @click="toggleReactionPicker"
-    >
-    </Button>
-    <Popover ref="reactionPicker" :show-close-icon="false">
-      <div class="flex max-w-[20rem] flex-wrap gap-2">
-        <Button
-          v-for="p in reactionItems"
-          :key="`picker-${p.id}`"
-          rounded
-          text
-          severity="secondary"
-          :aria-label="`发送表情 ${p.id}`"
-          @click="onPickerReactionClick(p)"
-        >
-          <template #icon>
-            <img :src="p.url" :alt="p.id" class="h-6 w-6 object-contain" />
-          </template>
-        </Button>
-      </div>
-    </Popover>
+  <div class="flex flex-wrap justify-center gap-1.5 sm:gap-2 select-none">
     <Chip
-      v-for="p in visibleReactionItems"
+      v-for="p in reactionItems"
       :key="p.id"
       @click="onReactionClick(p)"
       @keydown.enter.prevent="onReactionClick(p)"
       @keydown.space.prevent="onReactionClick(p)"
-      class="shrink-0"
+      :class="['shrink-0', isBurstAnimating ? 'pointer-events-none opacity-70' : '']"
       :pt="{
         root: { class: chipRootClass(p.count) },
       }"
@@ -175,7 +131,7 @@ function chipContentClass(count: number) {
         <span v-if="p.count > 0" class="text-xs leading-none sm:text-xs md:text-sm lg:text-base">{{ p.count }}</span>
       </span>
     </Chip>
-  </BlockUI>
+  </div>
   <Transition
     enter-active-class="transition duration-300 ease-out"
     enter-from-class="translate-y-6 scale-50 rotate-[-12deg] opacity-0"
