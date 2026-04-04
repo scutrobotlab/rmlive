@@ -60,4 +60,17 @@ describe('danmu store candidates', () => {
     expect(store.schoolCandidates.includes('School-31')).toBe(true);
     expect(store.schoolCandidates.includes('School-30')).toBe(false);
   });
+
+  it('upserts messages by id instead of duplicating them', () => {
+    const store = useDanmuStore();
+
+    store.addMessage(createMessage({ id: 'dup', timestamp: 100, text: 'first', nickname: 'Alice' }));
+    store.addMessage(createMessage({ id: 'dup', timestamp: 200, text: 'second', nickname: 'Bob' }));
+
+    expect(store.messages).toHaveLength(1);
+    expect(store.messages[0].id).toBe('dup');
+    expect(store.messages[0].text).toBe('second');
+    expect(store.messages[0].timestamp).toBe(200);
+    expect(store.messages[0].nickname).toBe('Bob');
+  });
 });

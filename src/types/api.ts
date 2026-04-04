@@ -83,12 +83,17 @@ export interface ScheduleEntry extends AnyRecord {
 export type Schedule = ScheduleEntry[] | AnyRecord;
 
 // Danmu (Comments via Leancloud Realtime)
+/** artplayer-plugin-danmuku: 0 scroll, 1 top, 2 bottom */
+export type DanmuMode = 0 | 1 | 2;
+
 export interface DanmuData {
   text: string;
   username: string;
   nickname: string;
   schoolName: string;
   badge: string;
+  mode?: DanmuMode;
+  color?: string;
 }
 
 export interface DanmuAttributes {
@@ -99,6 +104,8 @@ export interface DanmuAttributes {
   position: string;
   isAdmin: boolean;
   username?: string;
+  mode?: DanmuMode;
+  color?: string;
 }
 
 export interface DanmuMessage extends DanmuData {

@@ -1,18 +1,21 @@
 <script setup lang="ts">
 import { DanmuService } from '@/danmu/DanmuService';
 import { useDanmuFilterStore } from '@/stores/danmuFilter';
+import { useMatchEngagementStore } from '@/stores/matchEngagement';
+import { useRmDataStore } from '@/stores/rmData';
 import { useUiStore } from '@/stores/ui';
 import { isIFrame, useUserInfoStore } from '@/stores/userInfo';
-import { formatStructuredName } from '@/utils/danmuView';
+import { formatStructuredName, resolveDisplaySchool } from '@/utils/danmuView';
 import Artplayer, { Option } from 'artplayer';
 import artplayerPluginChromecast from 'artplayer-plugin-chromecast';
 import artplayerPluginDanmuku, { type Danmu } from 'artplayer-plugin-danmuku';
 import Hls from 'hls.js/dist/hls.js';
+import { storeToRefs } from 'pinia';
 import Button from 'primevue/button';
 import Message from 'primevue/message';
 import ProgressSpinner from 'primevue/progressspinner';
 import { useToast } from 'primevue/usetoast';
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { DanmuAttributes, DanmuMessage } from '../../types/api';
 import DanmuFilterDialog from '../dialogs/DanmuFilterDialog.vue';
 
@@ -35,15 +38,20 @@ const props = defineProps<Props>();
 const toast = useToast();
 const hasShownAutoplayNotice = ref(false);
 const filterDialogVisible = ref(false);
+const uiStore = useUiStore();
+const danmuEnabledAtLoad = Boolean(uiStore.danmuEnabled);
 
 const emit = defineEmits<{
   retry: [];
   danmu: [msg: DanmuMessage];
+  danmuReset: [];
 }>();
 
 const container = ref<HTMLDivElement | null>(null);
 let player: Artplayer | null = null;
 let playerReady = false;
+/** Hls instance for current stream; must be torn down before each new customType load and on player destroy. */
+let liveHls: InstanceType<typeof Hls> | null = null;
 let danmukuPlugin: any = null;
 const pendingDanmuQueue: DanmuMessage[] = [];
 const danmuService = ref<DanmuService | null>(null);
@@ -52,7 +60,10 @@ let roomSwitchToken = 0;
 let connectingService: DanmuService | null = null;
 
 const danmuFilterStore = useDanmuFilterStore();
+const matchEngagementStore = useMatchEngagementStore();
 const userInfoStore = useUserInfoStore();
+const rmDataStore = useRmDataStore();
+const { runningMatchForSelectedZone } = storeToRefs(rmDataStore);
 const activeFilterCount = computed(() => danmuFilterStore.activeRuleCount);
 const filterActive = computed(() => danmuFilterStore.rules.enabled && activeFilterCount.value > 0);
 const filterSummary = computed(() => {
@@ -66,6 +77,77 @@ const filterSummary = computed(() => {
 
   return `关键词 ${danmuFilterStore.rules.keywords.length} / 学校 ${danmuFilterStore.rules.schools.length} / 用户 ${danmuFilterStore.rules.users.length}`;
 });
+
+type TrackDanmuStyle = Record<string, string>;
+
+const RED_SIDE_DANMU_STYLE: TrackDanmuStyle = {
+  fontWeight: '700',
+  padding: '0 8px',
+  // borderRadius: '6px',
+  // border: '1px solid rgba(251, 113, 133, 0.6)',
+  backgroundColor: 'rgba(190, 24, 93, 0.24)',
+  textShadow: '0 0 6px rgba(251, 113, 133, 0.45)',
+};
+
+const BLUE_SIDE_DANMU_STYLE: TrackDanmuStyle = {
+  fontWeight: '700',
+  padding: '0 8px',
+  // borderRadius: '6px',
+  // border: '1px solid rgba(56, 189, 248, 0.6)',
+  backgroundColor: 'rgba(3, 105, 161, 0.24)',
+  textShadow: '0 0 6px rgba(56, 189, 248, 0.45)',
+};
+
+function normalizeSchoolToken(value: string | null | undefined): string {
+  const normalized = String(value ?? '')
+    .trim()
+    .toLowerCase();
+  if (!normalized || normalized === '-') {
+    return '';
+  }
+  return normalized;
+}
+
+function resolveSpecialDanmuStyleBySchool(message: DanmuMessage): TrackDanmuStyle | undefined {
+  const senderSchool = normalizeSchoolToken(resolveDisplaySchool(message));
+  if (!senderSchool) {
+    return undefined;
+  }
+
+  const currentMatch = runningMatchForSelectedZone.value;
+  if (!currentMatch) {
+    return undefined;
+  }
+
+  const redSchool = normalizeSchoolToken(currentMatch.redTeam.collegeName);
+  const blueSchool = normalizeSchoolToken(currentMatch.blueTeam.collegeName);
+
+  if (senderSchool === redSchool) {
+    return RED_SIDE_DANMU_STYLE;
+  }
+
+  if (senderSchool === blueSchool) {
+    return BLUE_SIDE_DANMU_STYLE;
+  }
+
+  return undefined;
+}
+
+function buildLocalEchoDanmu(text: string, attrs: DanmuAttributes): DanmuMessage {
+  const now = Date.now();
+  return {
+    id: `local-${now}-${Math.random().toString(36).slice(2, 8)}`,
+    timestamp: now,
+    text,
+    username: String(attrs.username ?? ''),
+    nickname: attrs.nickname,
+    schoolName: attrs.schoolName,
+    badge: attrs.badge,
+    source: 'realtime',
+    ...(attrs.mode !== undefined ? { mode: attrs.mode } : {}),
+    ...(attrs.color ? { color: attrs.color } : {}),
+  };
+}
 
 async function sendDanmuByRealtime(d: Danmu): Promise<boolean> {
   const content = String(d?.text ?? '').trim();
@@ -98,14 +180,44 @@ async function sendDanmuByRealtime(d: Danmu): Promise<boolean> {
     }),
   };
 
+  const m = d?.mode;
+  if (m === 0 || m === 1 || m === 2) {
+    myAttributes.mode = m;
+  }
+  const c = typeof d?.color === 'string' ? d.color.trim() : '';
+  if (c) {
+    myAttributes.color = c;
+  }
+
   try {
     await danmuService.value.sendMessage(content, myAttributes);
+    // Return true so the plugin clears input and emits to track immediately.
+    emit('danmu', buildLocalEchoDanmu(content, myAttributes));
+    return true;
   } catch (error) {
     console.error('[LivePlayer] Failed to send danmu:', error);
     toast.add({ severity: 'error', summary: '发送失败', detail: '弹幕发送失败，请稍后重试' });
+    return false;
   }
+}
 
-  return false; // 阻止 artplayer 插件的默认发送行为
+function destroyAttachedHls() {
+  if (liveHls) {
+    liveHls.destroy();
+    liveHls = null;
+  }
+}
+
+async function exitPipIfNeeded() {
+  const vid = container.value?.querySelector('video');
+  if (!vid || document.pictureInPictureElement !== vid) {
+    return;
+  }
+  try {
+    await document.exitPictureInPicture();
+  } catch {
+    // ignore InvalidStateError, etc.
+  }
 }
 
 async function destroyDanmu() {
@@ -126,9 +238,12 @@ async function destroyDanmu() {
     }
     danmuService.value = null;
   }
+  matchEngagementStore.registerDanmuService(null);
+  matchEngagementStore.registerViewerCountService(null);
 }
 
 function destroyPlayer() {
+  destroyAttachedHls();
   if (player) {
     player.destroy(false);
     player = null;
@@ -143,11 +258,14 @@ function pushDanmuToPlayer(msg: DanmuMessage) {
     return;
   }
 
+  const specialStyle = resolveSpecialDanmuStyleBySchool(msg);
   const payload = {
     text: msg.text,
-    color: '#FFFFFF',
+    color: msg.color ?? '#FFFFFF',
+    mode: msg.mode ?? 0,
     time: 0,
     border: msg.nickname === userInfoStore.userInfo?.nickname,
+    ...(specialStyle ? { style: specialStyle } : {}),
   };
 
   if (playerReady && danmukuPlugin?.emit) {
@@ -223,6 +341,9 @@ async function initDanmu(roomId: string) {
   }
 
   if (currentRoomId === roomId && danmuService.value) {
+    matchEngagementStore.registerDanmuService(danmuService.value);
+    matchEngagementStore.registerViewerCountService(danmuService.value);
+    void matchEngagementStore.refreshHydrate({ trackLoading: true });
     return;
   }
 
@@ -230,6 +351,7 @@ async function initDanmu(roomId: string) {
   currentRoomId = roomId;
 
   try {
+    emit('danmuReset');
     await destroyDanmu();
 
     const nextService = new DanmuService({
@@ -239,9 +361,21 @@ async function initDanmu(roomId: string) {
           return;
         }
         emit('danmu', msg);
-        if (msg.source !== 'history' && danmuFilterStore.matchMessage(msg)) {
+        if (msg.source !== 'history') {
           pushDanmuToPlayer(msg);
         }
+      },
+      onEngagementMessage: (p) => {
+        if (token !== roomSwitchToken) {
+          return;
+        }
+        matchEngagementStore.ingestLive(p);
+      },
+      onEngagementSnapshot: (payload) => {
+        if (token !== roomSwitchToken) {
+          return;
+        }
+        matchEngagementStore.applyWorkerSnapshot(payload);
       },
       onError: (error) => {
         console.error('[LivePlayer] Danmu service error:', error);
@@ -262,6 +396,10 @@ async function initDanmu(roomId: string) {
     }
 
     danmuService.value = nextService;
+    await nextService.updateDanmuFilterRules(danmuFilterStore.rules);
+    matchEngagementStore.registerDanmuService(nextService);
+    matchEngagementStore.registerViewerCountService(nextService);
+    void matchEngagementStore.refreshHydrate({ trackLoading: true });
   } catch (error) {
     if (connectingService) {
       try {
@@ -275,7 +413,32 @@ async function initDanmu(roomId: string) {
   }
 }
 
-const uiStore = useUiStore();
+function buildQualityItems() {
+  return (props.qualityOptions ?? [])
+    .filter((item) => item.src && item.src.startsWith('http'))
+    .map((item) => ({
+      html: item.label,
+      url: item.src,
+      default: item.value === props.selectedQualityRes,
+    }));
+}
+
+function updateQualityControl() {
+  if (!player || !playerReady) {
+    return;
+  }
+  const qualityItems = buildQualityItems();
+  const p = player as Artplayer & { controls?: { remove?: (name: string) => void } };
+  if (qualityItems.length > 1) {
+    player.quality = qualityItems;
+  } else {
+    try {
+      p.controls?.remove?.('quality');
+    } catch {
+      // no quality control to remove
+    }
+  }
+}
 
 async function mountPlayer(url: string) {
   if (!container.value) {
@@ -284,28 +447,25 @@ async function mountPlayer(url: string) {
 
   destroyPlayer();
 
-  const qualityItems = (props.qualityOptions ?? [])
-    .filter((item) => item.src && item.src.startsWith('http'))
-    .map((item) => ({
-      html: item.label,
-      url: item.src,
-      default: item.value === props.selectedQualityRes,
-    }));
+  const qualityItems = buildQualityItems();
 
-  const plugins: any[] = [
-    artplayerPluginDanmuku({
-      danmuku: [],
-      speed: 5,
-      margin: [10, '25%'],
-      opacity: 1,
-      fontSize: 22,
-      antiOverlap: true,
-      synchronousPlayback: false,
-      emitter: isIFrame,
-      filter: danmuFilterStore.matchTrackDanmu,
-      beforeEmit: sendDanmuByRealtime,
-    }),
-  ];
+  const plugins: any[] = [];
+  if (danmuEnabledAtLoad) {
+    plugins.push(
+      artplayerPluginDanmuku({
+        danmuku: [],
+        speed: 5,
+        margin: [10, '25%'],
+        opacity: 1,
+        fontSize: 22,
+        antiOverlap: true,
+        synchronousPlayback: false,
+        emitter: isIFrame,
+        filter: danmuFilterStore.matchTrackDanmu,
+        beforeEmit: sendDanmuByRealtime,
+      }),
+    );
+  }
 
   // PC端启用 Chromecast
   if (!uiStore.isMobile) {
@@ -320,57 +480,60 @@ async function mountPlayer(url: string) {
     muted: true,
     autoplay: true,
     autoSize: true,
-    autoMini: true,
+    autoMini: false,
     setting: true,
-    flip: true,
+    flip: false,
     isLive: true,
-    playbackRate: true,
+    playbackRate: false,
     aspectRatio: true,
-    subtitleOffset: true,
+    subtitleOffset: false,
     hotkey: true,
     pip: !uiStore.isMobile,
     fullscreen: true,
     fullscreenWeb: !uiStore.isMobile,
-    quality: qualityItems.length > 1 ? qualityItems : undefined,
+    ...(qualityItems.length > 1 ? { quality: qualityItems } : {}),
     airplay: true,
     gesture: true,
-    screenshot: true,
+    screenshot: false,
     mutex: true,
     backdrop: true,
     playsInline: true,
     autoOrientation: true,
     lock: true,
-    settings: [
-      {
-        html: filterActive.value ? `过滤 ${activeFilterCount.value}` : '过滤',
-        tooltip: filterSummary.value,
-        name: 'danmu-filter',
-        icon: '',
-        style: {
-          color: filterActive.value ? '#ffd04b' : '#fff',
-        },
-        onClick() {
-          filterDialogVisible.value = true;
-        },
-      },
-    ],
+    settings: danmuEnabledAtLoad
+      ? [
+          {
+            html: filterActive.value ? `过滤 ${activeFilterCount.value}` : '过滤',
+            tooltip: filterSummary.value,
+            name: 'danmu-filter',
+            icon: '',
+            style: {
+              color: filterActive.value ? '#ffd04b' : '#fff',
+            },
+            onClick() {
+              filterDialogVisible.value = true;
+            },
+          },
+        ]
+      : [],
     customType: {
       m3u8(video: HTMLVideoElement, m3u8Url: string) {
+        destroyAttachedHls();
         if (Hls.isSupported()) {
           const hls = new Hls({
             lowLatencyMode: true,
             liveDurationInfinity: true,
             liveSyncMode: 'edge',
-            backBufferLength: 8, // 只保留最近8秒已播放内容
-            maxBufferLength: 10, // 向前最多缓冲10秒
-            maxMaxBufferLength: 30, // 突破上限30秒
-            liveSyncDurationCount: 3, // 距直播边缘3个segment
-            maxLiveSyncPlaybackRate: 1.0, // 禁用倍速追赶（避免画面加速）
-            liveSyncOnStallIncrease: 0.25, // 卡顿恢复后增加0.25秒缓冲
+            backBufferLength: 8,
+            maxBufferLength: 10,
+            maxMaxBufferLength: 30,
+            liveSyncDurationCount: 3,
+            maxLiveSyncPlaybackRate: 1.0,
+            liveSyncOnStallIncrease: 0.25,
           });
+          liveHls = hls;
           hls.loadSource(m3u8Url);
           hls.attachMedia(video);
-          player?.on('destroy', () => hls.destroy());
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
           video.src = m3u8Url;
         }
@@ -379,12 +542,13 @@ async function mountPlayer(url: string) {
   };
 
   player = new Artplayer(playerOptions);
-  danmukuPlugin = (player as any).plugins?.artplayerPluginDanmuku;
+  danmukuPlugin = danmuEnabledAtLoad ? (player as any).plugins?.artplayerPluginDanmuku : null;
 
   // Some browsers still require an explicit play attempt after source mount.
   player.on('ready', () => {
     playerReady = true;
-    danmukuPlugin = (player as any).plugins?.artplayerPluginDanmuku;
+    danmukuPlugin = danmuEnabledAtLoad ? (player as any).plugins?.artplayerPluginDanmuku : null;
+    updateQualityControl();
     flushPendingDanmu();
     try {
       player?.play();
@@ -403,9 +567,34 @@ async function mountPlayer(url: string) {
   });
 }
 
+async function applyStreamUrl(url: string) {
+  if (!container.value) {
+    return;
+  }
+
+  if (player && playerReady) {
+    try {
+      await exitPipIfNeeded();
+      await player.switchUrl(url);
+      updateQualityControl();
+      return;
+    } catch (error) {
+      console.warn('[LivePlayer] switchUrl failed, remounting player', error);
+    }
+  }
+
+  await mountPlayer(url);
+}
+
 watch(
   () => props.chatRoomId,
   (roomId) => {
+    if (!danmuEnabledAtLoad) {
+      currentRoomId = null;
+      roomSwitchToken += 1;
+      void destroyDanmu();
+      return;
+    }
     pendingDanmuQueue.length = 0;
     if (roomId) {
       void initDanmu(roomId);
@@ -415,20 +604,49 @@ watch(
       void destroyDanmu();
     }
   },
+  { immediate: true },
 );
 
 exposeDanmuDebugApi();
 
 watch(
+  () => danmuFilterStore.rules,
+  (rules) => {
+    if (!danmuService.value) {
+      return;
+    }
+    void danmuService.value.updateDanmuFilterRules(rules).catch((error) => {
+      console.warn('[LivePlayer] failed to update worker danmu filter rules', error);
+    });
+  },
+  { deep: true },
+);
+
+watch(
   () => props.streamUrl,
   (url) => {
     if (url) {
-      mountPlayer(url);
+      void applyStreamUrl(url);
     } else {
       destroyPlayer();
     }
   },
-  { immediate: true },
+);
+
+onMounted(() => {
+  const url = props.streamUrl;
+  if (url) {
+    void applyStreamUrl(url);
+  }
+});
+
+watch(
+  () => [props.qualityOptions, props.selectedQualityRes] as const,
+  () => {
+    if (player && playerReady) {
+      updateQualityControl();
+    }
+  },
 );
 
 onBeforeUnmount(async () => {
@@ -462,7 +680,7 @@ onBeforeUnmount(async () => {
 
     <div ref="container" class="player-container" />
 
-    <DanmuFilterDialog v-model:visible="filterDialogVisible" />
+    <DanmuFilterDialog v-if="danmuEnabledAtLoad" v-model:visible="filterDialogVisible" />
   </div>
 </template>
 

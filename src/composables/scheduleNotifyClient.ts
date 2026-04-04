@@ -1,5 +1,5 @@
 import { SCHEDULE_JSON_POLL_MS, SCHEDULE_NOTIFY_SW_THROTTLE_MS } from '@/constants/schedulePoll';
-import { useRmDataStore } from '@/stores/rmData/index';
+import { useRmDataStore } from '@/stores/rmData';
 import { storeToRefs } from 'pinia';
 import { onMounted, onUnmounted, watch } from 'vue';
 

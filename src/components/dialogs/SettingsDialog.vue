@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { useScheduleNotifyStore } from '@/stores/scheduleNotify';
-import { NotifyPolicy } from '@/utils/scheduleNotifyDiff';
+import { useUiStore } from '@/stores/ui';
+import type { NotifyPolicy } from '@/utils/scheduleNotifyDiff';
 import { SelectButton } from 'primevue';
 import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
 import Fieldset from 'primevue/fieldset';
+import Message from 'primevue/message';
+import ToggleSwitch from 'primevue/toggleswitch';
 import { computed, ref, watch } from 'vue';
 
 const props = defineProps<{
@@ -16,14 +19,10 @@ const emit = defineEmits<{
 }>();
 
 const scheduleNotifyStore = useScheduleNotifyStore();
+const uiStore = useUiStore();
 const permissionHint = ref('');
-
-const scheduleNotifyIsFllow = computed({
-  get: () => scheduleNotifyStore.policy === 'follow',
-  set: (v: boolean) => {
-    scheduleNotifyStore.policy = v ? 'follow' : 'all';
-  },
-});
+const danmuEnabledDraft = ref(Boolean(uiStore.danmuEnabled));
+const danmuSettingChanged = ref(false);
 
 const scheduleNotifyPermLabel = computed(() => {
   if (typeof globalThis.Notification === 'undefined') {
@@ -50,12 +49,23 @@ watch(
   (v) => {
     if (v) {
       permissionHint.value = '';
+      danmuEnabledDraft.value = Boolean(uiStore.danmuEnabled);
+      danmuSettingChanged.value = false;
     }
   },
 );
 
 function close() {
   emit('update:visible', false);
+}
+
+function onDanmuEnabledChange(value: boolean) {
+  danmuEnabledDraft.value = value;
+  const normalized = Boolean(value);
+  if (normalized !== Boolean(uiStore.danmuEnabled)) {
+    uiStore.setDanmuEnabled(normalized);
+    danmuSettingChanged.value = true;
+  }
 }
 
 async function requestNotificationPermission() {
@@ -105,7 +115,7 @@ const scheduleNotifyPolicyOptions: { label: string; value: NotifyPolicy }[] = [
 
         <Button
           v-if="scheduleNotifyPermCanRequestAgain"
-          label="再次请求通知权限"
+          label="Request Notification Permission"
           size="small"
           variant="outlined"
           @click="requestNotificationPermission"
@@ -113,10 +123,34 @@ const scheduleNotifyPolicyOptions: { label: string; value: NotifyPolicy }[] = [
 
         <p v-if="permissionHint" class="perm-hint">{{ permissionHint }}</p>
       </Fieldset>
+
+      <Fieldset legend="功能开关">
+        <div class="flex flex-col gap-2">
+          <div class="field-row">
+            <label for="settings-pk-enabled" class="field-label">队伍PK</label>
+            <ToggleSwitch id="settings-pk-enabled" v-model="uiStore.pkEnabled" />
+          </div>
+          <div class="field-row">
+            <label for="settings-reaction-enabled" class="field-label">对局评价</label>
+            <ToggleSwitch id="settings-reaction-enabled" v-model="uiStore.reactionEnabled" />
+          </div>
+          <div class="field-row">
+            <label for="settings-danmu-enabled" class="field-label">弹幕功能</label>
+            <ToggleSwitch
+              id="settings-danmu-enabled"
+              :model-value="danmuEnabledDraft"
+              @update:model-value="onDanmuEnabledChange"
+            />
+          </div>
+        </div>
+        <Message v-if="danmuSettingChanged" severity="warn" :closable="false" class="mt-2">
+          弹幕功能开关已更新，刷新页面后生效。
+        </Message>
+      </Fieldset>
     </div>
 
     <template #footer>
-      <Button label="关闭" severity="secondary" size="small" @click="close" />
+      <Button label="Close" severity="secondary" size="small" @click="close" />
     </template>
   </Dialog>
 </template>
@@ -140,14 +174,6 @@ const scheduleNotifyPolicyOptions: { label: string; value: NotifyPolicy }[] = [
 .field-label {
   flex: 1;
   min-width: 0;
-  cursor: pointer;
-}
-
-.field-hint {
-  margin: 0.35rem 0 0;
-  font-size: 0.8rem;
-  opacity: 0.85;
-  line-height: 1.4;
 }
 
 .perm-line {

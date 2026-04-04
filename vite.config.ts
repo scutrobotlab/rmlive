@@ -1,13 +1,16 @@
+import tailwindcss from '@tailwindcss/vite';
 import vue from '@vitejs/plugin-vue';
 import path from 'node:path';
 import { visualizer } from 'rollup-plugin-visualizer';
-import { VitePWA } from 'vite-plugin-pwa';
 import { defineConfig } from 'vite';
+import { mockDevServerPlugin } from 'vite-plugin-mock-dev-server';
+import { VitePWA } from 'vite-plugin-pwa';
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const isAnalyze = mode === 'analyze';
   const isBuildIFrame = process.env.VITE_BUILD_IFRAME === 'true' || mode === 'iframe';
+  const useRmLiveJsonMock = process.env.VITE_RM_MOCK === '1';
 
   if (isBuildIFrame) {
     // Build iframe-inject.js as a standalone IIFE
@@ -44,7 +47,12 @@ export default defineConfig(({ mode }) => {
   return {
     base: process.env.VITE_BASE ?? '/',
     plugins: [
+      tailwindcss(),
       vue(),
+      ...mockDevServerPlugin({
+        enabled: useRmLiveJsonMock,
+        prefix: ['/live_json'],
+      }),
       VitePWA({
         registerType: 'autoUpdate',
         strategies: 'injectManifest',
@@ -60,10 +68,40 @@ export default defineConfig(({ mode }) => {
           theme_color: '#0f172a',
           icons: [
             {
-              src: 'rmlive-logo.svg',
-              sizes: 'any',
-              type: 'image/svg+xml',
+              src: 'pwa-64x64.png',
+              sizes: '64x64',
+              type: 'image/png',
+            },
+            {
+              src: 'pwa-192x192.png',
+              sizes: '192x192',
+              type: 'image/png',
+            },
+            {
+              src: 'pwa-512x512.png',
+              sizes: '512x512',
+              type: 'image/png',
               purpose: 'any',
+            },
+            {
+              src: 'maskable-icon-512x512.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'maskable',
+            },
+          ],
+          screenshots: [
+            {
+              src: 'pwa-screenshot-wide.png',
+              sizes: '1280x720',
+              type: 'image/png',
+              form_factor: 'wide',
+            },
+            {
+              src: 'pwa-screenshot-narrow.png',
+              sizes: '360x720',
+              type: 'image/png',
+              form_factor: 'narrow',
             },
           ],
         },
@@ -85,13 +123,17 @@ export default defineConfig(({ mode }) => {
     ].filter(Boolean),
     server: {
       proxy: {
-        '/live_json': {
-          target: 'https://rm-static.djicdn.com/',
-          changeOrigin: true,
-          rewrite: (path) => {
-            return path;
-          },
-        },
+        ...(useRmLiveJsonMock
+          ? {}
+          : {
+              '/live_json': {
+                target: 'https://rm-static.djicdn.com/',
+                changeOrigin: true,
+                rewrite: (path) => {
+                  return path;
+                },
+              },
+            }),
         '/rm-static': {
           target: 'https://rm-static.djicdn.com/',
           changeOrigin: true,

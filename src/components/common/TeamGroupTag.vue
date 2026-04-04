@@ -1,11 +1,11 @@
 <script setup lang="ts">
+import { useRmDataStore } from '@/stores/rmData';
 import type { TeamSelectPayload } from '@/types/teamSelect';
-import { useRmDataStore } from '@/stores/rmData/index';
 import { buildGroupRankPanelModel } from '@/utils/matchDataFormat';
+import { storeToRefs } from 'pinia';
 import Message from 'primevue/message';
 import Popover from 'primevue/popover';
 import Tag from 'primevue/tag';
-import { storeToRefs } from 'pinia';
 import { computed, ref } from 'vue';
 import TeamLogo from './TeamLogo.vue';
 
@@ -79,11 +79,7 @@ function onPickRowKey(row: { teamName: string; collegeName: string }) {
             @keydown.space.prevent="onPickRowKey(row)"
           >
             <div class="rank-main">
-              <Tag
-                :value="`#${row.rankDisplay}`"
-                :severity="row.isCurrent ? 'info' : 'contrast'"
-                size="small"
-              />
+              <Tag :value="`#${row.rankDisplay}`" :severity="row.isCurrent ? 'info' : 'contrast'" size="small" />
               <TeamLogo
                 v-if="row.collegeLogo"
                 :logo="row.collegeLogo"

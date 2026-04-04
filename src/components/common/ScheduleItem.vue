@@ -8,6 +8,7 @@ import Tag from 'primevue/tag';
 import { computed, ref } from 'vue';
 import TeamInfoCard from '../common/TeamInfoCard.vue';
 import ReplayVideoDialog from '../dialogs/ReplayVideoDialog.vue';
+import LivingTag from './LivingTag.vue';
 import ScheduleSubscription from './ScheduleSubscription.vue';
 
 interface Props {
@@ -116,10 +117,7 @@ const slug = computed(() => {
           <span class="event-title">{{ item.eventTitle || '赛事' }}</span>
           <div class="header-center">
             <div v-if="isLiving" class="live-wrap">
-              <div class="live-pill">
-                <i class="pi pi-circle-fill" />
-                <span>LIVE</span>
-              </div>
+              <LivingTag :zone-id="item.zoneId" :zone-name="item.zoneName" :compact="props.compact" />
               <span class="round-text">{{ liveRoundText }}</span>
             </div>
             <span v-else class="time-text">{{ matchTime }}</span>
@@ -157,7 +155,11 @@ const slug = computed(() => {
               :zone-name="item.zoneName"
               logo-position="right"
               @select="onSelectTeam"
-            />
+            >
+              <template v-if="$slots.redTeamAction" #headPrefix>
+                <slot name="redTeamAction" />
+              </template>
+            </TeamInfoCard>
           </div>
 
           <div class="center-column">
@@ -189,9 +191,15 @@ const slug = computed(() => {
               :zone-id="item.zoneId"
               :zone-name="item.zoneName"
               @select="onSelectTeam"
-            />
+            >
+              <template v-if="$slots.blueTeamAction" #headExtra>
+                <slot name="blueTeamAction" />
+              </template>
+            </TeamInfoCard>
           </div>
         </div>
+
+        <slot name="belowTeams" />
 
         <ReplayVideoDialog
           v-if="item.replayVideo"
@@ -262,7 +270,7 @@ const slug = computed(() => {
   align-items: stretch;
   gap: 0.3rem;
   margin-top: 0.3rem;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .team-column {
@@ -303,21 +311,6 @@ const slug = computed(() => {
   gap: 0.25rem;
 }
 
-.live-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.35rem 0.7rem;
-  border-radius: 999px;
-  background: rgba(249, 115, 22, 0.12);
-  color: #f97316;
-  animation: live-breathe 1.4s ease-in-out infinite;
-}
-
-.live-pill .pi {
-  font-size: 0.55rem;
-}
-
 .round-text {
   font-size: 0.78rem;
   color: var(--text-color-secondary);
@@ -342,16 +335,6 @@ const slug = computed(() => {
 .score-sep {
   font-size: 1.1rem;
   color: var(--text-color-secondary);
-}
-
-@keyframes live-breathe {
-  0%,
-  100% {
-    opacity: 0.65;
-  }
-  50% {
-    opacity: 1;
-  }
 }
 
 @media (max-width: 768px) {
@@ -410,12 +393,6 @@ const slug = computed(() => {
 
   .score-sep {
     font-size: 0.72rem;
-  }
-
-  .live-pill {
-    padding: 0.1rem 0.16rem;
-    gap: 0.08rem;
-    font-size: 0.54rem;
   }
 
   .round-text {

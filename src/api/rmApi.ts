@@ -9,6 +9,7 @@ import type {
   Schedule,
 } from '../types/api';
 import { buildLiveJsonUrl } from '../utils/urlProxy';
+import { normalizeZoneId } from '../utils/zoneView';
 import { fetchJson } from './http';
 import { startPolling, type PollingTask } from './polling';
 
@@ -330,7 +331,9 @@ export function resolveLiveStreamUrl(
     return firstValid ?? null;
   }
 
-  const selectedZone = zones.find((item) => item.zoneId === zoneId) ?? zones[0];
+  const z = normalizeZoneId(zoneId);
+  const selectedZone =
+    zones.find((item) => normalizeZoneId(item.zoneId) === z) ?? zones[0];
   const selectedQuality = selectedZone.qualities.find((item) => item.res === qualityRes);
 
   return selectedQuality?.src ?? selectedZone.qualities[0]?.src ?? null;

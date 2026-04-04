@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { useRmDataStore } from '@/stores/rmData/index';
+import { useRmDataStore } from '@/stores/rmData';
 import { useUiStore } from '@/stores/ui';
 import type { ZoneOptionItem } from '@/utils/zoneView';
 import { storeToRefs } from 'pinia';
 import Button from 'primevue/button';
+import Popover from 'primevue/popover';
 import Select from 'primevue/select';
 import SelectButton from 'primevue/selectbutton';
 import Toolbar from 'primevue/toolbar';
@@ -19,6 +20,7 @@ const { isMobile, isDark } = storeToRefs(uiStore);
 const { scheduleEventTitle, selectedZoneId, zoneOptions } = storeToRefs(dataStore);
 
 const brandLogoUrl = `${import.meta.env.BASE_URL}rmlive-logo.svg`;
+const mobileAccessPopover = ref<InstanceType<typeof Popover> | null>(null);
 
 function showZoneDate(option: ZoneOptionItem): boolean {
   return (option.state === 'upcoming' || option.state === 'ended') && option.dateText !== '-';
@@ -31,7 +33,7 @@ const currentZoneOption = computed(() => {
 });
 
 function onZoneChange(value: string) {
-  dataStore.setZone(value);
+  dataStore.selectZone(value);
 }
 
 function onThemeChange(value: boolean) {
@@ -40,6 +42,25 @@ function onThemeChange(value: boolean) {
 
 function goToGithub() {
   window.open('https://github.com/scutrobotlab/rmlive', '_blank');
+}
+
+const mobileAccessUrl = computed(() => {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+  return `${window.location.origin}${window.location.pathname}${window.location.search}`;
+});
+
+const mobileAccessQrUrl = computed(() => {
+  if (!mobileAccessUrl.value) {
+    return '';
+  }
+  const query = encodeURIComponent(mobileAccessUrl.value);
+  return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${query}`;
+});
+
+function toggleMobileAccess(event: Event) {
+  mobileAccessPopover.value?.toggle(event);
 }
 
 const settingsVisible = ref(false);
@@ -123,6 +144,37 @@ const settingsVisible = ref(false);
     </template>
 
     <template #end>
+      <UserProfilePop v-if="!uiStore.isMobile" />
+      <Button
+        v-if="!uiStore.isMobile"
+        icon="pi pi-mobile"
+        rounded
+        text
+        size="small"
+        severity="contrast"
+        aria-label="扫码在手机访问 RMLive"
+        @click="toggleMobileAccess"
+      />
+      <Popover ref="mobileAccessPopover" :show-close-icon="false">
+        <div class="flex w-[220px] flex-col items-center gap-3">
+          <p class="m-0 text-center text-sm">扫码在手机访问RMLive</p>
+          <img
+            v-if="mobileAccessQrUrl"
+            :src="mobileAccessQrUrl"
+            alt="RMLive 手机访问二维码"
+            class="h-[220px] w-[220px]"
+          />
+          <a
+            v-if="mobileAccessUrl"
+            :href="mobileAccessUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="max-w-full truncate text-xs"
+          >
+            {{ mobileAccessUrl }}
+          </a>
+        </div>
+      </Popover>
       <Button
         rounded
         text
@@ -135,7 +187,6 @@ const settingsVisible = ref(false);
       >
       </Button>
       <SettingsDialog v-model:visible="settingsVisible" />
-      <UserProfilePop v-if="!uiStore.isMobile" />
       <Button
         v-if="!uiStore.isMobile"
         icon="pi pi-github"

@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import type { TeamSelectPayload } from '@/types/teamSelect';
-import { useRmDataStore } from '@/stores/rmData/index';
+import { useRmDataStore } from '@/stores/rmData';
 import { useUiStore } from '@/stores/ui';
+import type { TeamSelectPayload } from '@/types/teamSelect';
+import { storeToRefs } from 'pinia';
 import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
-import { storeToRefs } from 'pinia';
 import { computed } from 'vue';
 import TeamGroupTag from '../common/TeamGroupTag.vue';
 import RobotDataPanel from '../panels/RobotDataPanel.vue';
@@ -69,6 +69,7 @@ function goSchedule(tab: 'schedule' | 'result') {
   <Dialog
     :visible="visible"
     modal
+    dismissable-mask
     :style="{ width: 'min(1100px, 96vw)' }"
     @update:visible="onVisibleChange"
   >
@@ -86,12 +87,7 @@ function goSchedule(tab: 'schedule' | 'result') {
       </div>
     </template>
 
-    <RobotDataPanel
-      v-if="visible"
-      :payload="robotData"
-      :selected-zone-id="selectedZoneId"
-      :team-name="selectedTeam"
-    />
+    <RobotDataPanel v-if="visible" :payload="robotData" :selected-zone-id="selectedZoneId" :team-name="selectedTeam" />
 
     <template #footer>
       <div class="ti-footer">

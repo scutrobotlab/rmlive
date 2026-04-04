@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
+import type { DanmuMessage } from '../types/api';
 import { normalizeDanmuFilterToken } from '../utils/danmuFilterRules';
 import {
   resolveDisplayNickname,
@@ -7,7 +8,6 @@ import {
   resolveTooltipMeta,
   resolveTooltipText,
 } from '../utils/danmuView';
-import type { DanmuMessage } from '../types/api';
 
 export const useDanmuStore = defineStore('danmu', () => {
   const messages = ref<DanmuMessage[]>([]);
@@ -43,7 +43,12 @@ export const useDanmuStore = defineStore('danmu', () => {
   }
 
   function addMessage(msg: DanmuMessage) {
-    messages.value.unshift(msg);
+    const existingIndex = messages.value.findIndex((item) => item.id === msg.id);
+    if (existingIndex >= 0) {
+      messages.value.splice(existingIndex, 1, msg);
+    } else {
+      messages.value.unshift(msg);
+    }
     messages.value.sort((a, b) => {
       if (b.timestamp !== a.timestamp) {
         return b.timestamp - a.timestamp;

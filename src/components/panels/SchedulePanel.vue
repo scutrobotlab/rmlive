@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useRmDataStore } from '@/stores/rmData/index';
+import { useRmDataStore } from '@/stores/rmData';
 import { useUiStore } from '@/stores/ui';
 import type { TeamSelectPayload } from '@/types/teamSelect';
 import {
@@ -9,13 +9,13 @@ import {
   getZoneNameOptions,
   isResultStatus,
 } from '@/utils/matchView';
+import { storeToRefs } from 'pinia';
 import Card from 'primevue/card';
 import Tab from 'primevue/tab';
 import TabList from 'primevue/tablist';
 import TabPanel from 'primevue/tabpanel';
 import TabPanels from 'primevue/tabpanels';
 import Tabs from 'primevue/tabs';
-import { storeToRefs } from 'pinia';
 import { computed, nextTick, ref, watch } from 'vue';
 import ScheduleList from './ScheduleList.vue';
 import ScheduleListFilter from './ScheduleListFilter.vue';

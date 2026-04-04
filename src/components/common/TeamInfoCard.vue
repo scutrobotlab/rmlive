@@ -55,6 +55,7 @@ function onClick() {
       <TeamLogo :logo="logo" :team-name="teamName" :custom-size="logoSize || (compact ? '1.75rem' : '')" />
       <div class="meta">
         <div class="head-row">
+          <slot name="headPrefix" />
           <h4>{{ teamName }}</h4>
           <TeamGroupTag
             v-if="showGroupLabel && groupLabel"
@@ -64,6 +65,7 @@ function onClick() {
             :zone-name="zoneName"
             @pick-team="emit('select', $event)"
           />
+          <slot name="headExtra" />
         </div>
         <p v-if="showCollegeName">{{ collegeName || '-' }}</p>
       </div>

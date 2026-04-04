@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { useRmDataStore } from '@/stores/rmData/index';
+import { useRmDataStore } from '@/stores/rmData';
 import { useUiStore } from '@/stores/ui';
+import { storeToRefs } from 'pinia';
 import { Fieldset } from 'primevue';
 import Splitter from 'primevue/splitter';
 import SplitterPanel from 'primevue/splitterpanel';
-import { storeToRefs } from 'pinia';
-import { defineAsyncComponent } from 'vue';
+import { computed, defineAsyncComponent } from 'vue';
 import type { DanmuMessage } from '../../types/api';
 
 const dataStore = useRmDataStore();
@@ -18,16 +18,23 @@ const {
   playerQualityOptions,
   selectedQualityRes,
   selectedZoneChatRoomId,
+  runningMatchForSelectedZone,
 } = storeToRefs(dataStore);
 
-const { isMobile } = storeToRefs(uiStore);
+const { isMobile, pkEnabled, reactionEnabled } = storeToRefs(uiStore);
+const danmuEnabledAtLoad = Boolean(uiStore.danmuEnabled);
 
 const emit = defineEmits<{
   danmu: [msg: DanmuMessage];
+  danmuReset: [];
 }>();
 
 const LivePlayer = defineAsyncComponent(() => import('../live/LivePlayer.vue'));
 const DanmuPanel = defineAsyncComponent(() => import('../danmu/DanmuPanel.vue'));
+const MatchFirepowerBar = defineAsyncComponent(() => import('../panels/MatchFirepowerBar.vue'));
+const MatchReactionStrip = defineAsyncComponent(() => import('../panels/MatchReactionStrip.vue'));
+
+const hasCurrentMatch = computed(() => Boolean(runningMatchForSelectedZone.value));
 
 function onRetry() {
   void dataStore.retryLiveStream();
@@ -36,13 +43,18 @@ function onRetry() {
 function onDanmu(msg: DanmuMessage) {
   emit('danmu', msg);
 }
+
+function onDanmuReset() {
+  emit('danmuReset');
+}
 </script>
 
 <template>
   <section class="main-grid">
-    <Splitter v-if="!isMobile" layout="horizontal" :style="{ height: '100%' }">
+    <Splitter v-if="!isMobile && danmuEnabledAtLoad" layout="horizontal" :style="{ height: '100%' }">
       <SplitterPanel :size="75" :minSize="50">
         <div class="live-column">
+          <MatchFirepowerBar v-if="hasCurrentMatch && pkEnabled" />
           <LivePlayer
             :stream-url="effectiveStreamUrl"
             :loading="streamLoading"
@@ -52,7 +64,11 @@ function onDanmu(msg: DanmuMessage) {
             :chat-room-id="selectedZoneChatRoomId"
             @retry="onRetry"
             @danmu="onDanmu"
+            @danmu-reset="onDanmuReset"
           />
+          <div v-if="hasCurrentMatch && reactionEnabled">
+            <MatchReactionStrip />
+          </div>
         </div>
       </SplitterPanel>
 
@@ -62,6 +78,7 @@ function onDanmu(msg: DanmuMessage) {
     </Splitter>
 
     <div v-else class="live-column">
+      <MatchFirepowerBar v-if="hasCurrentMatch && pkEnabled" />
       <LivePlayer
         :stream-url="effectiveStreamUrl"
         :loading="streamLoading"
@@ -71,9 +88,13 @@ function onDanmu(msg: DanmuMessage) {
         :chat-room-id="selectedZoneChatRoomId"
         @retry="onRetry"
         @danmu="onDanmu"
+        @danmu-reset="onDanmuReset"
       />
+      <div v-if="hasCurrentMatch && reactionEnabled" class="mt-2">
+        <MatchReactionStrip />
+      </div>
 
-      <Fieldset legend="弹幕列表" toggleable class="mobile-danmu-panel">
+      <Fieldset v-if="danmuEnabledAtLoad && isMobile" legend="弹幕列表" toggleable class="mobile-danmu-panel">
         <div class="mobile-danmu-wrap">
           <DanmuPanel />
         </div>

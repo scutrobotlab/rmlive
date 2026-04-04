@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { useDanmuFilterStore } from '@/stores/danmuFilter';
+import { useRmDataStore } from '@/stores/rmData';
+import { resolveDisplayNickname, resolveDisplaySchool, resolveTooltipMeta } from '@/utils/danmuView';
+import { storeToRefs } from 'pinia';
 import { Button, useToast } from 'primevue';
 import Card from 'primevue/card';
 import Popover from 'primevue/popover';
 import Tag from 'primevue/tag';
 import { computed, onBeforeUnmount, ref } from 'vue';
-import { resolveDisplayNickname, resolveDisplaySchool, resolveTooltipMeta } from '@/utils/danmuView';
 import type { DanmuMessage } from '../../types/api';
 
 const props = defineProps<{
@@ -16,6 +18,52 @@ const school = computed(() => resolveDisplaySchool(props.message));
 const nickname = computed(() => resolveDisplayNickname(props.message));
 const tooltipMeta = computed(() => resolveTooltipMeta(props.message));
 const timeOnly = computed(() => new Date(props.message.timestamp).toLocaleTimeString('zh-CN', { hour12: false }));
+
+const rmDataStore = useRmDataStore();
+const { runningMatchForSelectedZone } = storeToRefs(rmDataStore);
+
+function normalizeSchoolToken(value: string | null | undefined): string {
+  const normalized = String(value ?? '')
+    .trim()
+    .toLowerCase();
+  if (!normalized || normalized === '-') {
+    return '';
+  }
+  return normalized;
+}
+
+const sideClass = computed(() => {
+  const senderSchool = normalizeSchoolToken(resolveDisplaySchool(props.message));
+  if (!senderSchool) {
+    return '';
+  }
+
+  const currentMatch = runningMatchForSelectedZone.value;
+  if (!currentMatch) {
+    return '';
+  }
+
+  const redSchool = normalizeSchoolToken(currentMatch.redTeam.collegeName);
+  const blueSchool = normalizeSchoolToken(currentMatch.blueTeam.collegeName);
+
+  if (senderSchool === redSchool) {
+    return 'is-red-side';
+  }
+
+  if (senderSchool === blueSchool) {
+    return 'is-blue-side';
+  }
+
+  return '';
+});
+
+const sideBadge = computed(() => {
+  if (sideClass.value === 'is-red-side' || sideClass.value === 'is-blue-side') {
+    return props.message.schoolName;
+  }
+
+  return '';
+});
 
 const tooltipRef = ref<any>(null);
 let hideTimer: number | null = null;
@@ -72,11 +120,12 @@ const addFilterSchool = () => {
 </script>
 
 <template>
-  <article class="danmu-item" tabindex="0" @contextmenu.prevent="showTooltip" @blur="scheduleHide">
+  <article class="danmu-item" :class="sideClass" tabindex="0" @click="showTooltip" @focus="showTooltip">
     <aside class="meta-col">
       <p class="school">{{ school }}</p>
       <p class="nickname">{{ nickname }}</p>
       <p class="time">{{ timeOnly }}</p>
+      <!-- <p v-if="sideBadge" class="side-badge">{{ sideBadge }}</p> -->
     </aside>
     <p class="content">{{ message.text }}</p>
 
@@ -111,7 +160,20 @@ const addFilterSchool = () => {
   align-items: start;
   padding: 0.28rem 0.4rem;
   border-radius: 0.4rem;
+  border: 1px solid transparent;
   background: var(--danmu-item-bg);
+}
+
+.danmu-item.is-red-side {
+  border-color: rgba(251, 113, 133, 0.82);
+  background: linear-gradient(90deg, rgba(190, 24, 93, 0.16), rgba(15, 23, 42, 0.03) 72%), rgba(190, 24, 93, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(251, 113, 133, 0.1);
+}
+
+.danmu-item.is-blue-side {
+  border-color: rgba(56, 189, 248, 0.82);
+  background: linear-gradient(90deg, rgba(3, 105, 161, 0.16), rgba(15, 23, 42, 0.03) 72%), rgba(3, 105, 161, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.1);
 }
 
 .meta-col {
@@ -141,6 +203,30 @@ const addFilterSchool = () => {
 .time {
   font-size: 0.65rem;
   opacity: 0.72;
+}
+
+.side-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin: 0.2rem 0 0;
+  padding: 0.1rem 0.38rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #f8fafc;
+  background: rgba(15, 23, 42, 0.78);
+}
+
+.danmu-item.is-red-side .side-badge {
+  background: rgba(190, 24, 93, 0.92);
+}
+
+.danmu-item.is-blue-side .side-badge {
+  background: rgba(2, 132, 199, 0.92);
 }
 
 .content {

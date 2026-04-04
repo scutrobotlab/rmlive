@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useMatchEngagementStore } from '@/stores/matchEngagement';
 import { storeToRefs } from 'pinia';
 import ScrollTop from 'primevue/scrolltop';
 import Skeleton from 'primevue/skeleton';
@@ -11,19 +12,25 @@ import DanmuItem from './DanmuItem.vue';
 
 const danmuStore = useDanmuStore();
 const danmuFilterStore = useDanmuFilterStore();
+const matchEngagementStore = useMatchEngagementStore();
 const { messages } = storeToRefs(danmuStore);
+const { viewerCount } = storeToRefs(matchEngagementStore);
 
 const virtualItems = computed<Array<DanmuMessage | null>>(() => {
   return messages.value.filter((message) => danmuFilterStore.matchMessage(message));
 });
 
-const totalCount = computed(() => messages.value.length);
-const filteredCount = computed(() => virtualItems.value.length);
+const viewerCountLabel = computed(() => {
+  return viewerCount.value === null ? '...' : viewerCount.value.toLocaleString('zh-CN');
+});
 </script>
 
 <template>
   <section class="danmu-panel">
-    <!-- <div v-if="totalCount" class="list-meta">显示 {{ filteredCount }} / {{ totalCount }}</div> -->
+    <div class="list-meta" aria-live="polite">
+      <span class="list-meta-label">观看人数</span>
+      <span class="list-meta-value">{{ viewerCountLabel }}</span>
+    </div>
 
     <VirtualScroller
       v-if="virtualItems.length"
@@ -45,10 +52,6 @@ const filteredCount = computed(() => virtualItems.value.length);
 
     <div v-else class="list-body list-empty-wrap">
       <div class="list-empty">暂无弹幕</div>
-      <div class="list-skeleton">
-        <Skeleton width="100%" height="1.6rem" />
-        <Skeleton width="100%" height="1.6rem" />
-      </div>
     </div>
 
     <ScrollTop target=".danmu-virtual" :threshold="120" icon="pi pi-arrow-up" />
@@ -72,9 +75,24 @@ const filteredCount = computed(() => virtualItems.value.length);
 }
 
 .list-meta {
-  padding: 0.2rem 0.45rem;
-  font-size: 0.75rem;
-  opacity: 0.72;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.18rem 0.45rem;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  opacity: 0.78;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.list-meta-label {
+  letter-spacing: 0.08em;
+}
+
+.list-meta-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }
 
 .list-row {

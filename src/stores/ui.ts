@@ -3,7 +3,9 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 
 const THEME_KEY = 'rm-live-theme';
-const NEXT_PANEL_KEY = 'rm-next-panel-expanded';
+const PK_ENABLED_KEY = 'rm-live-pk-enabled';
+const REACTION_ENABLED_KEY = 'rm-live-reaction-enabled';
+const DANMU_ENABLED_KEY = 'rm-live-danmu-enabled';
 const MOBILE_BREAKPOINT = 768;
 
 export interface SchedulePanelIntent {
@@ -15,8 +17,10 @@ export interface SchedulePanelIntent {
 
 export const useUiStore = defineStore('ui', () => {
   const isDark = useLocalStorage<boolean>(THEME_KEY, true);
+  const pkEnabled = useLocalStorage<boolean>(PK_ENABLED_KEY, true);
+  const reactionEnabled = useLocalStorage<boolean>(REACTION_ENABLED_KEY, true);
+  const danmuEnabled = useLocalStorage<boolean>(DANMU_ENABLED_KEY, true);
   const isMobile = ref(false);
-  const nextMatchExpanded = useLocalStorage<boolean>(NEXT_PANEL_KEY, false);
 
   const schedulePanelIntent = ref<SchedulePanelIntent | null>(null);
   /** Skip one run of SchedulePanel auto-tab switching after programmatic navigation. */
@@ -57,16 +61,16 @@ export const useUiStore = defineStore('ui', () => {
     applyTheme();
   }
 
+  function setDanmuEnabled(enabled: boolean) {
+    danmuEnabled.value = enabled;
+  }
+
   function updateViewport() {
     isMobile.value = window.innerWidth <= MOBILE_BREAKPOINT;
   }
 
   function onResize() {
     updateViewport();
-  }
-
-  function setNextMatchExpanded(expanded: boolean) {
-    nextMatchExpanded.value = expanded;
   }
 
   function initializeUi() {
@@ -82,14 +86,16 @@ export const useUiStore = defineStore('ui', () => {
 
   return {
     isDark,
+    pkEnabled,
+    reactionEnabled,
+    danmuEnabled,
     isMobile,
-    nextMatchExpanded,
     schedulePanelIntent,
     requestSchedulePanelFocus,
     clearSchedulePanelIntent,
     consumeSuppressScheduleAutoTabOnce,
     setDarkMode,
-    setNextMatchExpanded,
+    setDanmuEnabled,
     initializeUi,
     teardownUi,
   };

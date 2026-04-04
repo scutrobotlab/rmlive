@@ -1,6 +1,4 @@
-/* PrimeVue Theme & App Global Variables */
-
-/* 集中所有颜色、主题相关 CSS 变量，避免 scoped :global() 污染 */
+@import "tailwindcss";
 
 :root {
   /* Scoreboard Theme Colors (from MatchBlock.vue) */
@@ -68,8 +66,9 @@ body,
   box-sizing: border-box;
 }
 
+/* clip: 横向裁切但不建立 scroll container；hidden 会把 overflow-y 算成 auto，破坏日期 sticky */
 .schedule-tabs .p-tabpanel {
-  overflow-x: hidden;
+  overflow-x: clip;
   padding: 0.35rem 0 0;
 }
 

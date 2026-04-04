@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { useRmDataStore } from '@/stores/rmData/index';
+import { useRmDataStore } from '@/stores/rmData';
 import { useUiStore } from '@/stores/ui';
-import Skeleton from 'primevue/skeleton';
 import { storeToRefs } from 'pinia';
+import Skeleton from 'primevue/skeleton';
 import { defineAsyncComponent } from 'vue';
 
 import type { TeamSelectPayload } from '@/types/teamSelect';
