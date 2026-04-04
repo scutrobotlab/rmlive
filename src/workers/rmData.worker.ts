@@ -819,6 +819,7 @@ self.addEventListener('message', (event: MessageEvent<RmDataWorkerIncomingMessag
     state.selectedZoneId =
       data.payload.zoneId != null && data.payload.zoneId !== '' ? normalizeZoneId(data.payload.zoneId) : null;
     syncSelectionAfterDataChange();
+    scheduleSnapshot('PATCH_STATE', STREAM_DOMAIN_KEYS);
     void probeSelectedStreamAvailability({ showLoading: false });
     return;
   }
@@ -826,6 +827,7 @@ self.addEventListener('message', (event: MessageEvent<RmDataWorkerIncomingMessag
   if (data.type === 'USER_SELECT_QUALITY') {
     state.selectedQualityRes =
       data.payload.qualityRes && data.payload.qualityRes.trim() ? data.payload.qualityRes : null;
+    scheduleSnapshot('PATCH_STATE', STREAM_DOMAIN_KEYS);
     void probeSelectedStreamAvailability({ showLoading: false });
     return;
   }

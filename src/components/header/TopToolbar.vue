@@ -209,37 +209,14 @@ const settingsVisible = ref(false);
 
 .top-toolbar :deep(.p-toolbar) {
   min-height: 3.2rem;
-}
-
-@media (min-width: 769px) {
-  .top-toolbar :deep(.p-toolbar) {
-    flex-wrap: nowrap;
-    align-items: center;
-  }
-
-  .top-toolbar :deep(.p-toolbar-start),
-  .top-toolbar :deep(.p-toolbar-center),
-  .top-toolbar :deep(.p-toolbar-end) {
-    min-width: 0;
-  }
-
-  .top-toolbar :deep(.p-toolbar-center) {
-    flex: 1 1 auto;
-    justify-content: center;
-  }
-
-  .top-toolbar :deep(.p-toolbar-end) {
-    flex-shrink: 0;
-    gap: 0.2rem;
-    display: inline-flex;
-    align-items: center;
-  }
+  row-gap: 0.45rem;
 }
 
 .toolbar-brand {
   display: flex;
   align-items: center;
   gap: 0.65rem;
+  min-width: 0;
 }
 
 .brand-logo {
@@ -268,23 +245,29 @@ const settingsVisible = ref(false);
   font-size: 0.78rem;
 }
 
-.toolbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 0;
-}
-
-.toolbar-actions > * {
-  flex-shrink: 0;
-}
-
 .zone-select {
   min-width: 9rem;
 }
 
 .zone-select-button-wrap {
-  flex: 1;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.zone-select-button-wrap :deep(.p-selectbutton) {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28rem;
+}
+
+.zone-select-button-wrap :deep(.p-togglebutton) {
+  flex: 0 0 auto;
+}
+
+.zone-select-button-wrap :deep(.p-togglebutton .p-button-label) {
   min-width: 0;
 }
 
@@ -333,14 +316,6 @@ const settingsVisible = ref(false);
   padding: 0.25rem;
 }
 
-.settings-entry-logo {
-  display: block;
-  width: 1.35rem;
-  height: 1.35rem;
-  object-fit: contain;
-  opacity: 0.92;
-}
-
 @media (width <= 768px) {
   .toolbar-brand-meta h1 {
     font-size: 0.92rem;
@@ -348,10 +323,6 @@ const settingsVisible = ref(false);
 
   .toolbar-brand-meta p {
     display: none;
-  }
-
-  .toolbar-actions {
-    gap: 0.35rem;
   }
 
   .zone-select {

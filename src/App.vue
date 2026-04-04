@@ -110,7 +110,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .app-shell {
-  max-width: 1280px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 1rem;
   box-sizing: border-box;

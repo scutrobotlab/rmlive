@@ -57,6 +57,7 @@ let hlsMediaRecoveryCount = 0;
 let hlsLastMediaRecoveryAt = 0;
 let currentAppliedStreamUrl: string | null = null;
 let streamSwitchToken = 0;
+let latestRequestedStreamUrl: string | null = null;
 let danmukuPlugin: any = null;
 const pendingDanmuQueue: DanmuMessage[] = [];
 const danmuService = ref<DanmuService | null>(null);
@@ -742,27 +743,49 @@ async function applyStreamUrl(url: string) {
     return;
   }
 
+  latestRequestedStreamUrl = url;
+  const requestToken = ++streamSwitchToken;
+
   markPerformance('rm-player-url-applied');
 
   if (url === currentAppliedStreamUrl && player && playerReady) {
+    if (requestToken === streamSwitchToken) {
+      isStreamSwitching.value = false;
+    }
     return;
   }
 
   if (player && playerReady) {
-    const switchToken = ++streamSwitchToken;
     isStreamSwitching.value = true;
     try {
       await exitPipIfNeeded();
+      if (requestToken !== streamSwitchToken) {
+        return;
+      }
       await player.switchUrl(url);
+      if (requestToken !== streamSwitchToken) {
+        const pending = latestRequestedStreamUrl;
+        if (pending && pending !== url) {
+          void applyStreamUrl(pending);
+        }
+        return;
+      }
       currentAppliedStreamUrl = url;
       const video = container.value?.querySelector('video') ?? null;
       await waitForVideoPlayable(video);
+      if (requestToken !== streamSwitchToken) {
+        const pending = latestRequestedStreamUrl;
+        if (pending && pending !== url) {
+          void applyStreamUrl(pending);
+        }
+        return;
+      }
       updateQualityControl();
       return;
     } catch (error) {
       console.warn('[LivePlayer] switchUrl failed, remounting player', error);
     } finally {
-      if (switchToken === streamSwitchToken) {
+      if (requestToken === streamSwitchToken) {
         isStreamSwitching.value = false;
       }
     }
@@ -770,7 +793,9 @@ async function applyStreamUrl(url: string) {
 
   isStreamSwitching.value = true;
   await mountPlayer(url);
-  isStreamSwitching.value = false;
+  if (requestToken === streamSwitchToken) {
+    isStreamSwitching.value = false;
+  }
 }
 
 watch(
