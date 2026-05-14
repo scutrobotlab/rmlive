@@ -73,7 +73,7 @@ const settingsVisible = ref(false);
         <img :src="brandLogoUrl" alt="RMLive logo" class="brand-logo" />
         <div class="toolbar-brand-meta" v-if="!uiStore.isMobile">
           <h1>
-            <span>RMLive - Better 直播流</span>
+            <span>RMLive - 不一样的直播间</span>
             <small v-if="scheduleEventTitle" class="event-title">{{ scheduleEventTitle }}</small>
           </h1>
           <p>更清晰的赛事视图，更顺滑的直播体验</p>

@@ -17,7 +17,9 @@ const {
   streamLoading,
   liveGameInfo,
   effectiveStreamErrorMessage,
+  playerPerspectiveOptions,
   playerQualityOptions,
+  selectedPerspectiveKey,
   selectedQualityRes,
   selectedZoneChatRoomId,
   runningMatchForSelectedZone,
@@ -42,6 +44,14 @@ function onRetry() {
   void dataStore.retryLiveStream();
 }
 
+function onPerspectiveChange(value: string) {
+  dataStore.selectPerspective(value);
+}
+
+function onQualityChange(value: string) {
+  dataStore.selectQuality(value);
+}
+
 function onDanmu(msg: DanmuMessage) {
   emit('danmu', msg);
 }
@@ -62,10 +72,14 @@ function onDanmuReset() {
             :stream-url="effectiveStreamUrl"
             :loading="streamLoading"
             :error-message="effectiveStreamErrorMessage"
+            :perspective-options="playerPerspectiveOptions"
+            :selected-perspective-key="selectedPerspectiveKey"
             :quality-options="playerQualityOptions"
             :selected-quality-res="selectedQualityRes"
             :chat-room-id="selectedZoneChatRoomId"
             @retry="onRetry"
+            @perspective-change="onPerspectiveChange"
+            @quality-change="onQualityChange"
             @danmu="onDanmu"
             @danmu-reset="onDanmuReset"
           />
@@ -90,10 +104,14 @@ function onDanmuReset() {
         :stream-url="effectiveStreamUrl"
         :loading="streamLoading"
         :error-message="effectiveStreamErrorMessage"
+        :perspective-options="playerPerspectiveOptions"
+        :selected-perspective-key="selectedPerspectiveKey"
         :quality-options="playerQualityOptions"
         :selected-quality-res="selectedQualityRes"
         :chat-room-id="selectedZoneChatRoomId"
         @retry="onRetry"
+        @perspective-change="onPerspectiveChange"
+        @quality-change="onQualityChange"
         @danmu="onDanmu"
         @danmu-reset="onDanmuReset"
       />
@@ -153,4 +171,5 @@ function onDanmuReset() {
     height: 13rem;
   }
 }
+
 </style>

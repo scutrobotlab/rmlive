@@ -8,13 +8,14 @@ import type {
 } from '../types/api';
 import type { GroupSection, TeamGroupMeta } from '../utils/groupView';
 import type { MatchView } from '../utils/matchView';
-import type { PlayerQualityOption } from '../utils/rmStreamView';
+import type { PlayerPerspectiveOption, PlayerQualityOption } from '../utils/rmStreamView';
 import type { ZoneOptionItem, ZoneUiState } from '../utils/zoneView';
 
 export interface RmDataInitPayload {
   historySelectedZoneId: string | null;
   selectedZoneId: string | null;
   selectedQualityRes: string | null;
+  selectedPerspectiveKey: string | null;
   hasManualZoneSelection: boolean;
 }
 
@@ -28,6 +29,7 @@ export interface RmDataSnapshot {
   selectedZoneId: string | null;
   effectiveSelectedZoneId: string | null;
   selectedQualityRes: string | null;
+  selectedPerspectiveKey: string | null;
   selectedZoneName: string | null;
   selectedZoneUiState: ZoneUiState | null;
   streamLoading: boolean;
@@ -38,6 +40,7 @@ export interface RmDataSnapshot {
   groupSections: GroupSection[];
   teamGroupMap: Record<string, TeamGroupMeta>;
   scheduleEventTitle: string;
+  playerPerspectiveOptions: PlayerPerspectiveOption[];
   playerQualityOptions: PlayerQualityOption[];
   selectedZoneChatRoomId: string | null;
   scheduleMatchRows: MatchView[];
@@ -59,6 +62,7 @@ export interface RmDataPatchPayload {
 export type RmDataWorkerIncomingMessage =
   | { type: 'INIT'; payload: RmDataInitPayload }
   | { type: 'USER_SELECT_ZONE'; payload: { zoneId: string | null } }
+  | { type: 'USER_SELECT_PERSPECTIVE'; payload: { perspectiveKey: string | null } }
   | { type: 'USER_SELECT_QUALITY'; payload: { qualityRes: string | null } }
   | { type: 'RETRY_STREAM' }
   | { type: 'VISIBILITY_CHANGED'; payload: { hidden: boolean } }

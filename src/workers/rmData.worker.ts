@@ -27,6 +27,7 @@ import { toErrorSummary } from '../utils/observability';
 import {
   resolveDefaultQualityRes,
   resolveEffectiveStreamErrorMessage,
+  toPlayerPerspectiveOptions,
   toPlayerQualityOptions,
 } from '../utils/rmStreamView';
 import { getNowEpochSeconds } from '../utils/timeNow';
@@ -50,6 +51,7 @@ interface WorkerState {
   schedule: Schedule | null;
   selectedZoneId: string | null;
   selectedQualityRes: string | null;
+  selectedPerspectiveKey: string | null;
   historySelectedZoneId: string | null;
   hasManualZoneSelection: boolean;
   streamLoading: boolean;
@@ -73,6 +75,7 @@ const state: WorkerState = {
   schedule: null,
   selectedZoneId: null,
   selectedQualityRes: null,
+  selectedPerspectiveKey: null,
   historySelectedZoneId: null,
   hasManualZoneSelection: false,
   streamLoading: true,
@@ -99,6 +102,7 @@ const SNAPSHOT_KEYS: Array<keyof RmDataSnapshot> = [
   'selectedZoneId',
   'effectiveSelectedZoneId',
   'selectedQualityRes',
+  'selectedPerspectiveKey',
   'selectedZoneName',
   'selectedZoneUiState',
   'streamLoading',
@@ -109,6 +113,7 @@ const SNAPSHOT_KEYS: Array<keyof RmDataSnapshot> = [
   'groupSections',
   'teamGroupMap',
   'scheduleEventTitle',
+  'playerPerspectiveOptions',
   'playerQualityOptions',
   'selectedZoneChatRoomId',
   'scheduleMatchRows',
@@ -120,6 +125,7 @@ const STREAM_DOMAIN_KEYS: Array<keyof RmDataSnapshot> = [
   'selectedZoneId',
   'effectiveSelectedZoneId',
   'selectedQualityRes',
+  'selectedPerspectiveKey',
   'selectedZoneName',
   'selectedZoneUiState',
   'streamLoading',
@@ -127,6 +133,7 @@ const STREAM_DOMAIN_KEYS: Array<keyof RmDataSnapshot> = [
   'zoneOptions',
   'effectiveStreamUrl',
   'effectiveStreamErrorMessage',
+  'playerPerspectiveOptions',
   'playerQualityOptions',
   'selectedZoneChatRoomId',
   'groupSections',
@@ -149,6 +156,7 @@ const STREAM_STATUS_KEYS: Array<keyof RmDataSnapshot> = [
   'effectiveStreamUrl',
   'effectiveStreamErrorMessage',
   'selectedZoneUiState',
+  'playerPerspectiveOptions',
   'playerQualityOptions',
   'selectedZoneChatRoomId',
 ];
@@ -168,6 +176,7 @@ const SCHEDULE_DOMAIN_KEYS: Array<keyof RmDataSnapshot> = [
   'groupSections',
   'teamGroupMap',
   'playerQualityOptions',
+  'playerPerspectiveOptions',
   'selectedZoneChatRoomId',
 ];
 
@@ -224,10 +233,19 @@ function getSelectedLiveZone(liveZones: LiveZoneOption[]): LiveZoneOption | null
   return liveZones.find((zone) => normalizeZoneId(zone.zoneId) === targetId) ?? liveZones[0] ?? null;
 }
 
+function getSelectedPerspective(zone: LiveZoneOption | null) {
+  if (!zone?.perspectives.length) {
+    return null;
+  }
+
+  return zone.perspectives.find((item) => item.key === state.selectedPerspectiveKey) ?? zone.perspectives[0] ?? null;
+}
+
 function syncSelectionAfterDataChange() {
   const liveZones = getLiveZoneOptions();
   if (!liveZones.length) {
     state.selectedZoneId = null;
+    state.selectedPerspectiveKey = null;
     state.selectedQualityRes = null;
     return;
   }
@@ -251,7 +269,17 @@ function syncSelectionAfterDataChange() {
 
   const selectedZone = getSelectedLiveZone(liveZones);
   state.selectedZoneId = selectedZone ? normalizeZoneId(selectedZone.zoneId) || null : null;
-  state.selectedQualityRes = resolveDefaultQualityRes(selectedZone, state.selectedQualityRes);
+  const selectedPerspective = getSelectedPerspective(selectedZone);
+  state.selectedPerspectiveKey = selectedPerspective?.key ?? null;
+  state.selectedQualityRes = resolveDefaultQualityRes(
+    selectedPerspective
+      ? {
+          zoneName: selectedPerspective.label,
+          qualities: selectedPerspective.qualities,
+        }
+      : null,
+    state.selectedQualityRes,
+  );
 }
 
 function buildSnapshot(): RmDataSnapshot {
@@ -263,7 +291,13 @@ function buildSnapshot(): RmDataSnapshot {
   const selectedZoneId = selectedZone ? normalizeZoneId(selectedZone.zoneId) || null : null;
   const selectedZoneName = selectedZone?.zoneName ?? null;
   const effectiveSelectedZoneId = normalizeZoneId(state.selectedZoneId) || selectedZoneId || null;
-  const resolvedStreamUrl = resolveLiveStreamUrl(state.liveGameInfo, effectiveSelectedZoneId, state.selectedQualityRes);
+  const selectedPerspective = getSelectedPerspective(selectedZone);
+  const resolvedStreamUrl = resolveLiveStreamUrl(
+    state.liveGameInfo,
+    effectiveSelectedZoneId,
+    state.selectedQualityRes,
+    selectedPerspective?.key ?? undefined,
+  );
   const canPlaySelectedZone = Boolean(selectedZone && resolvedStreamUrl && !state.streamErrorMessage.trim());
   const effectiveStreamUrl = canPlaySelectedZone ? resolvedStreamUrl : null;
   const effectiveStreamErrorMessage = resolveEffectiveStreamErrorMessage(
@@ -275,7 +309,14 @@ function buildSnapshot(): RmDataSnapshot {
   const groupSections = extractGroupSections(state.groupsOrder, effectiveSelectedZoneId, selectedZoneName);
   const teamGroupMap = buildTeamGroupMap(groupSections);
   const scheduleEventTitle = getScheduleEventTitle(state.schedule);
-  const playerQualityOptions = toPlayerQualityOptions(selectedZone);
+  const playerPerspectiveOptions = toPlayerPerspectiveOptions(selectedZone?.perspectives);
+  const selectedPlayableStream = selectedPerspective
+    ? {
+        zoneName: selectedPerspective.label,
+        qualities: selectedPerspective.qualities,
+      }
+    : null;
+  const playerQualityOptions = toPlayerQualityOptions(selectedPlayableStream);
   const selectedZoneChatRoomId = resolveZoneChatRoomId(state.liveGameInfo, effectiveSelectedZoneId, selectedZoneName);
   const scheduleMatchRows = getScheduleRows(state.schedule, state.liveGameInfo);
   const runningMatchForSelectedZone = getRunningMatch(scheduleMatchRows, effectiveSelectedZoneId);
@@ -290,6 +331,7 @@ function buildSnapshot(): RmDataSnapshot {
     selectedZoneId: effectiveSelectedZoneId,
     effectiveSelectedZoneId,
     selectedQualityRes: state.selectedQualityRes,
+    selectedPerspectiveKey: selectedPerspective?.key ?? null,
     selectedZoneName,
     selectedZoneUiState,
     streamLoading: state.streamLoading,
@@ -300,6 +342,7 @@ function buildSnapshot(): RmDataSnapshot {
     groupSections,
     teamGroupMap,
     scheduleEventTitle,
+    playerPerspectiveOptions,
     playerQualityOptions,
     selectedZoneChatRoomId,
     scheduleMatchRows,
@@ -535,7 +578,13 @@ async function probeSelectedStreamAvailability(options: { showLoading: boolean }
   const selectedZone = getSelectedLiveZone(liveZones);
   const effectiveSelectedZoneId =
     normalizeZoneId(state.selectedZoneId) || normalizeZoneId(selectedZone?.zoneId) || null;
-  const streamUrl = resolveLiveStreamUrl(state.liveGameInfo, effectiveSelectedZoneId, state.selectedQualityRes);
+  const selectedPerspective = getSelectedPerspective(selectedZone);
+  const streamUrl = resolveLiveStreamUrl(
+    state.liveGameInfo,
+    effectiveSelectedZoneId,
+    state.selectedQualityRes,
+    selectedPerspective?.key ?? undefined,
+  );
 
   if (options.showLoading) {
     state.streamLoading = true;
@@ -769,6 +818,7 @@ function handleInit(payload: RmDataInitPayload) {
   state.historySelectedZoneId = payload.historySelectedZoneId;
   state.selectedZoneId = payload.selectedZoneId;
   state.selectedQualityRes = payload.selectedQualityRes;
+  state.selectedPerspectiveKey = payload.selectedPerspectiveKey;
   state.hasManualZoneSelection = payload.hasManualZoneSelection;
   state.streamLoading = true;
   state.streamErrorMessage = '';
@@ -827,6 +877,16 @@ self.addEventListener('message', (event: MessageEvent<RmDataWorkerIncomingMessag
   if (data.type === 'USER_SELECT_QUALITY') {
     state.selectedQualityRes =
       data.payload.qualityRes && data.payload.qualityRes.trim() ? data.payload.qualityRes : null;
+    syncSelectionAfterDataChange();
+    scheduleSnapshot('PATCH_STATE', STREAM_DOMAIN_KEYS);
+    void probeSelectedStreamAvailability({ showLoading: false });
+    return;
+  }
+
+  if (data.type === 'USER_SELECT_PERSPECTIVE') {
+    state.selectedPerspectiveKey =
+      data.payload.perspectiveKey && data.payload.perspectiveKey.trim() ? data.payload.perspectiveKey : null;
+    syncSelectionAfterDataChange();
     scheduleSnapshot('PATCH_STATE', STREAM_DOMAIN_KEYS);
     void probeSelectedStreamAvailability({ showLoading: false });
     return;

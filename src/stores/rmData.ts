@@ -12,7 +12,7 @@ import type {
 import type { GroupSection, TeamGroupMeta } from '../utils/groupView';
 import type { MatchView } from '../utils/matchView';
 import { logInfo, logWarn, markPerformance, measurePerformance } from '../utils/observability';
-import type { PlayerQualityOption } from '../utils/rmStreamView';
+import type { PlayerPerspectiveOption, PlayerQualityOption } from '../utils/rmStreamView';
 import { normalizeZoneId, type ZoneOptionItem, type ZoneUiState } from '../utils/zoneView';
 import type {
   RmDataBootstrapPayload,
@@ -37,6 +37,7 @@ export const useRmDataStore = defineStore('rm-data', () => {
   const selectedZoneId = ref<string | null>(null);
   const effectiveSelectedZoneId = ref<string | null>(null);
   const selectedQualityRes = ref<string | null>(null);
+  const selectedPerspectiveKey = ref<string | null>(null);
   const selectedZoneName = ref<string | null>(null);
   const selectedZoneUiState = ref<ZoneUiState | null>(null);
   const streamLoading = ref(true);
@@ -48,6 +49,7 @@ export const useRmDataStore = defineStore('rm-data', () => {
   const groupSections = ref<GroupSection[]>([]);
   const teamGroupMap = ref<Record<string, TeamGroupMeta>>({});
   const scheduleEventTitle = ref('');
+  const playerPerspectiveOptions = ref<PlayerPerspectiveOption[]>([]);
   const playerQualityOptions = ref<PlayerQualityOption[]>([]);
   const selectedZoneChatRoomId = ref<string | null>(null);
   const scheduleMatchRows = ref<MatchView[]>([]);
@@ -73,6 +75,7 @@ export const useRmDataStore = defineStore('rm-data', () => {
     selectedZoneId.value = snapshot.selectedZoneId;
     effectiveSelectedZoneId.value = snapshot.effectiveSelectedZoneId;
     selectedQualityRes.value = snapshot.selectedQualityRes;
+    selectedPerspectiveKey.value = snapshot.selectedPerspectiveKey;
     selectedZoneName.value = snapshot.selectedZoneName;
     selectedZoneUiState.value = snapshot.selectedZoneUiState;
     streamLoading.value = snapshot.streamLoading;
@@ -84,6 +87,7 @@ export const useRmDataStore = defineStore('rm-data', () => {
     groupSections.value = snapshot.groupSections;
     teamGroupMap.value = snapshot.teamGroupMap;
     scheduleEventTitle.value = snapshot.scheduleEventTitle;
+    playerPerspectiveOptions.value = snapshot.playerPerspectiveOptions;
     playerQualityOptions.value = snapshot.playerQualityOptions;
     selectedZoneChatRoomId.value = snapshot.selectedZoneChatRoomId;
     scheduleMatchRows.value = snapshot.scheduleMatchRows;
@@ -123,6 +127,9 @@ export const useRmDataStore = defineStore('rm-data', () => {
         case 'selectedQualityRes':
           selectedQualityRes.value = (value as RmDataSnapshot['selectedQualityRes']) ?? null;
           break;
+        case 'selectedPerspectiveKey':
+          selectedPerspectiveKey.value = (value as RmDataSnapshot['selectedPerspectiveKey']) ?? null;
+          break;
         case 'selectedZoneName':
           selectedZoneName.value = (value as RmDataSnapshot['selectedZoneName']) ?? null;
           break;
@@ -156,6 +163,9 @@ export const useRmDataStore = defineStore('rm-data', () => {
         case 'playerQualityOptions':
           playerQualityOptions.value = (value as RmDataSnapshot['playerQualityOptions']) ?? [];
           break;
+        case 'playerPerspectiveOptions':
+          playerPerspectiveOptions.value = (value as RmDataSnapshot['playerPerspectiveOptions']) ?? [];
+          break;
         case 'selectedZoneChatRoomId':
           selectedZoneChatRoomId.value = (value as RmDataSnapshot['selectedZoneChatRoomId']) ?? null;
           break;
@@ -187,6 +197,7 @@ export const useRmDataStore = defineStore('rm-data', () => {
       historySelectedZoneId: historySelectedZoneId.value,
       selectedZoneId: selectedZoneId.value,
       selectedQualityRes: selectedQualityRes.value,
+      selectedPerspectiveKey: selectedPerspectiveKey.value,
       hasManualZoneSelection,
     };
   }
@@ -347,6 +358,11 @@ export const useRmDataStore = defineStore('rm-data', () => {
     postToWorker({ type: 'USER_SELECT_QUALITY', payload: { qualityRes } });
   }
 
+  function selectPerspective(perspectiveKey: string | null) {
+    selectedPerspectiveKey.value = perspectiveKey;
+    postToWorker({ type: 'USER_SELECT_PERSPECTIVE', payload: { perspectiveKey } });
+  }
+
   function startPolling() {
     stopWorker();
     hasManualZoneSelection = false;
@@ -380,6 +396,7 @@ export const useRmDataStore = defineStore('rm-data', () => {
     selectedZoneId,
     effectiveSelectedZoneId,
     selectedQualityRes,
+    selectedPerspectiveKey,
     selectedZoneName,
     selectedZoneUiState,
     streamLoading,
@@ -389,11 +406,13 @@ export const useRmDataStore = defineStore('rm-data', () => {
     groupSections,
     teamGroupMap,
     scheduleEventTitle,
+    playerPerspectiveOptions,
     playerQualityOptions,
     selectedZoneChatRoomId,
     scheduleMatchRows,
     runningMatchForSelectedZone,
     selectZone,
+    selectPerspective,
     selectQuality,
     startPolling,
     stopPolling,
@@ -408,11 +427,13 @@ export const useRmDataStore = defineStore('rm-data', () => {
       'selectedZoneId',
       'effectiveSelectedZoneId',
       'selectedQualityRes',
+      'selectedPerspectiveKey',
       'selectedZoneName',
       'selectedZoneUiState',
       'zoneOptions',
       'effectiveStreamUrl',
       'effectiveStreamErrorMessage',
+      'playerPerspectiveOptions',
       'playerQualityOptions',
       'selectedZoneChatRoomId',
       'scheduleEventTitle',

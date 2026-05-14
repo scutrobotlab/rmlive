@@ -19,6 +19,12 @@ export interface LiveStreamCandidate extends AnyRecord {
   src?: string;
 }
 
+export interface LiveFpvEntry extends AnyRecord {
+  role?: string;
+  headimg?: string;
+  sources?: LiveStreamCandidate[];
+}
+
 export interface ReplayVideoContent extends AnyRecord {
   title1?: string;
   main_source_url?: string;
@@ -37,6 +43,7 @@ export interface LiveZone extends AnyRecord {
   liveState?: number;
   matchState?: number;
   zoneLiveString?: LiveStreamCandidate[];
+  fpvData?: LiveFpvEntry[];
   videos?: ReplayVideoEntry[];
 }
 
