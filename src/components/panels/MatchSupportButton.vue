@@ -150,7 +150,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="anchorRef" class="relative flex shrink-0 items-center" @click.stop>
+  <div ref="anchorRef" class="relative flex shrink-0 items-center select-none" @click.stop @contextmenu.prevent>
     <Button
       rounded
       text
@@ -170,7 +170,14 @@ onBeforeUnmount(() => {
       @keydown.enter.stop.prevent="sendSupportOnce"
       @keydown.space.stop.prevent="sendSupportOnce"
     >
-      <img :src="oak" :alt="supportLabel" class="h-5 w-5 object-contain sm:h-6 sm:w-6" />
+      <img
+        :src="oak"
+        :alt="supportLabel"
+        class="support-icon h-5 w-5 object-contain sm:h-6 sm:w-6"
+        draggable="false"
+        @dragstart.prevent
+        @contextmenu.prevent
+      />
     </Button>
   </div>
 
@@ -204,6 +211,12 @@ onBeforeUnmount(() => {
   transform: translate(-50%, -50%);
   animation: floating-like-rise var(--dur) ease-out forwards;
   filter: drop-shadow(0 4px 8px rgb(15 23 42 / 0.28));
+}
+
+.support-icon {
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+  user-select: none;
 }
 
 @keyframes floating-like-rise {

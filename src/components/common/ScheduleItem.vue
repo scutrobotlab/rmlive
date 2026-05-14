@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { TeamSelectPayload } from '@/types/teamSelect';
 import type { MatchView } from '@/utils/matchView';
-import { DeferredContent } from 'primevue';
 import Button from 'primevue/button';
 import Card from 'primevue/card';
 import Tag from 'primevue/tag';
@@ -110,9 +109,8 @@ const slug = computed(() => {
 </script>
 
 <template>
-  <DeferredContent>
-    <Card class="schedule-item" :class="{ compact: props.compact }">
-      <template #content>
+  <Card class="schedule-item" :class="{ compact: props.compact }">
+    <template #content>
         <header class="item-header">
           <span class="event-title">{{ item.eventTitle || '赛事' }}</span>
           <div class="header-center">
@@ -208,9 +206,8 @@ const slug = computed(() => {
           :video-url="item.replayVideo.url"
           :cover-url="item.replayVideo.coverUrl"
         />
-      </template>
-    </Card>
-  </DeferredContent>
+    </template>
+  </Card>
 </template>
 
 <style scoped>

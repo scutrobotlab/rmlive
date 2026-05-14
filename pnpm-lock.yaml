@@ -32,6 +32,9 @@ importers:
       pinia:
         specifier: ^3.0.4
         version: 3.0.4(typescript@5.9.3)(vue@3.5.30(typescript@5.9.3))
+      pinia-plugin-persistedstate:
+        specifier: ^4.7.1
+        version: 4.7.1(pinia@3.0.4(typescript@5.9.3)(vue@3.5.30(typescript@5.9.3)))
       primeicons:
         specifier: ^7.0.0
         version: 7.0.0
@@ -2801,6 +2804,7 @@ packages:
   glob@11.1.0:
     resolution: {integrity: sha512-vuNwKSaKiqm7g0THUBu2x7ckSs3XJLXE+2ssL7/MfTGPLLcrJQ/4Uq1CjPTtO5cCIiRxqvN6Twy1qOwhL0Xjcw==}
     engines: {node: 20 || >=22}
+    deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
     hasBin: true
 
   glob@7.2.3:
@@ -3776,6 +3780,20 @@ packages:
     resolution: {integrity: sha512-eG2dWTVw5bzqGRztnHExczNxt5VGsE6OwTeCG3fdUf9KBsZzO3R5OIIIzWR+iZA0NtZ+RDVdaoE2dK1cn6jH4g==}
     engines: {node: '>=0.10'}
     hasBin: true
+
+  pinia-plugin-persistedstate@4.7.1:
+    resolution: {integrity: sha512-WHOqh2esDlR3eAaknPbqXrkkj0D24h8shrDPqysgCFR6ghqP/fpFfJmMPJp0gETHsvrh9YNNg6dQfo2OEtDnIQ==}
+    peerDependencies:
+      '@nuxt/kit': '>=3.0.0'
+      '@pinia/nuxt': '>=0.10.0'
+      pinia: '>=3.0.0'
+    peerDependenciesMeta:
+      '@nuxt/kit':
+        optional: true
+      '@pinia/nuxt':
+        optional: true
+      pinia:
+        optional: true
 
   pinia@3.0.4:
     resolution: {integrity: sha512-l7pqLUFTI/+ESXn6k3nu30ZIzW5E2WZF/LaHJEpoq6ElcLD+wduZoB2kBN19du6K/4FDpPMazY2wJr+IndBtQw==}
@@ -8741,6 +8759,12 @@ snapshots:
   picomatch@4.0.4: {}
 
   pidtree@0.6.0: {}
+
+  pinia-plugin-persistedstate@4.7.1(pinia@3.0.4(typescript@5.9.3)(vue@3.5.30(typescript@5.9.3))):
+    dependencies:
+      defu: 6.1.4
+    optionalDependencies:
+      pinia: 3.0.4(typescript@5.9.3)(vue@3.5.30(typescript@5.9.3))
 
   pinia@3.0.4(typescript@5.9.3)(vue@3.5.30(typescript@5.9.3)):
     dependencies:

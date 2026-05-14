@@ -11,7 +11,11 @@ export function bindDanmuRoomReset(chatRoomId: Ref<string | null>, clearMessages
           to: nextRoomId,
         });
       }
-      clearMessages();
+
+      // Keep cached history on the initial bind; only reset when switching between rooms.
+      if (prevRoomId && nextRoomId !== prevRoomId) {
+        clearMessages();
+      }
     },
   );
 }

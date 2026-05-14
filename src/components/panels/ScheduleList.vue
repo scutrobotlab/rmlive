@@ -2,7 +2,7 @@
 import type { TeamSelectPayload } from '@/types/teamSelect';
 import { groupScheduleRowsByDate, type MatchView } from '@/utils/matchView';
 import Divider from 'primevue/divider';
-import { computed } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import ScheduleItem from '../common/ScheduleItem.vue';
 
 interface Props {
@@ -10,17 +10,165 @@ interface Props {
   teamGroupMap?: Record<string, { group: string; rank: string }>;
   compact?: boolean;
   dateOrder?: 'asc' | 'desc';
+  incremental?: boolean;
+  chunkSize?: number;
+  active?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   dateOrder: 'asc',
+  incremental: true,
+  chunkSize: 10,
+  active: true,
 });
 
 const emit = defineEmits<{
   teamSelect: [payload: TeamSelectPayload];
 }>();
 
-const dateGroups = computed(() => groupScheduleRowsByDate(props.rows, props.dateOrder));
+const visibleCount = ref(0);
+const loadSentinel = ref<HTMLDivElement | null>(null);
+let observer: IntersectionObserver | null = null;
+let fallbackScheduled = false;
+let appendScheduled = false;
+let lastAppendAt = 0;
+
+const APPEND_COOLDOWN_MS = 100;
+
+const renderedRows = computed(() => {
+  if (!props.incremental) {
+    return props.rows;
+  }
+
+  return props.rows.slice(0, visibleCount.value);
+});
+
+const hasMoreRows = computed(() => props.incremental && visibleCount.value < props.rows.length);
+
+const dateGroups = computed(() => groupScheduleRowsByDate(renderedRows.value, props.dateOrder));
+
+function normalizeChunkSize(): number {
+  const parsed = Number(props.chunkSize ?? 10);
+  if (!Number.isFinite(parsed)) {
+    return 10;
+  }
+  return Math.max(10, Math.floor(parsed));
+}
+
+function resetVisibleCount() {
+  if (!props.incremental) {
+    visibleCount.value = props.rows.length;
+    return;
+  }
+
+  visibleCount.value = Math.min(props.rows.length, normalizeChunkSize());
+}
+
+function loadMoreRows() {
+  if (!hasMoreRows.value || appendScheduled) {
+    return;
+  }
+
+  const now = performance.now();
+  if (now - lastAppendAt < APPEND_COOLDOWN_MS) {
+    return;
+  }
+
+  appendScheduled = true;
+  lastAppendAt = now;
+  const nextCount = Math.min(props.rows.length, visibleCount.value + normalizeChunkSize());
+  visibleCount.value = nextCount;
+  void nextTick(() => {
+    appendScheduled = false;
+    scheduleViewportCheck();
+  });
+}
+
+function stopObserver() {
+  if (observer) {
+    observer.disconnect();
+    observer = null;
+  }
+}
+
+function setupObserver() {
+  stopObserver();
+  if (!props.active || !hasMoreRows.value || !loadSentinel.value || typeof IntersectionObserver === 'undefined') {
+    return;
+  }
+
+  observer = new IntersectionObserver(
+    (entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) {
+        return;
+      }
+      loadMoreRows();
+    },
+    {
+      root: null,
+      rootMargin: '640px 0px',
+      threshold: 0,
+    },
+  );
+
+  observer.observe(loadSentinel.value);
+}
+
+function checkViewportAndLoadMore() {
+  if (!props.active || !hasMoreRows.value || !loadSentinel.value || typeof window === 'undefined') {
+    return;
+  }
+
+  const rect = loadSentinel.value.getBoundingClientRect();
+  if (rect.top <= window.innerHeight + 640) {
+    loadMoreRows();
+  }
+}
+
+function scheduleViewportCheck() {
+  if (fallbackScheduled || typeof window === 'undefined') {
+    return;
+  }
+
+  fallbackScheduled = true;
+  window.requestAnimationFrame(() => {
+    fallbackScheduled = false;
+    checkViewportAndLoadMore();
+  });
+}
+
+watch(
+  () => props.rows,
+  () => {
+    resetVisibleCount();
+    setupObserver();
+    scheduleViewportCheck();
+  },
+  { immediate: true },
+);
+
+watch(
+  () => [props.incremental, props.chunkSize, props.active] as const,
+  () => {
+    resetVisibleCount();
+    setupObserver();
+    scheduleViewportCheck();
+  },
+);
+
+watch(hasMoreRows, () => {
+  setupObserver();
+  scheduleViewportCheck();
+});
+
+onMounted(() => {
+  setupObserver();
+  scheduleViewportCheck();
+});
+
+onBeforeUnmount(() => {
+  stopObserver();
+});
 
 function onTeamSelect(payload: TeamSelectPayload) {
   emit('teamSelect', payload);
@@ -50,6 +198,10 @@ function onTeamSelect(payload: TeamSelectPayload) {
         @team-select="onTeamSelect"
       />
     </section>
+
+    <div v-if="hasMoreRows" ref="loadSentinel" class="list-tail" aria-hidden="true">
+      <small>正在加载更多赛程...</small>
+    </div>
   </div>
 </template>
 
@@ -70,6 +222,15 @@ function onTeamSelect(payload: TeamSelectPayload) {
 .date-group {
   margin-bottom: 0.55rem;
   min-width: 0;
+}
+
+.list-tail {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.8rem;
+  padding: 0.35rem 0 0.55rem;
+  color: var(--text-color-secondary);
 }
 
 .date-sticky {

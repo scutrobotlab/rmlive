@@ -80,7 +80,25 @@ export class DanmuService implements IMatchEngagementGateway, IDanmuFilterGatewa
     if (!this.currentRoomId) {
       throw new Error('Danmu service not connected');
     }
-    await this.workerClient.sendDanmu(this.currentRoomId, text, attrs);
+    const roomId = this.currentRoomId;
+    try {
+      await this.workerClient.sendDanmu(roomId, text, attrs);
+    } catch (error) {
+      if (!this.isInvalidMessagingTarget(error)) {
+        throw error;
+      }
+
+      // LeanCloud may occasionally reject stale room targets after reconnects.
+      // Rejoin once and retry to avoid user-visible transient failures.
+      try {
+        await this.workerClient.disconnectRoom(roomId);
+      } catch {
+        // Best-effort cleanup before reconnect.
+      }
+
+      await this.workerClient.connectRoom(roomId, false);
+      await this.workerClient.sendDanmu(roomId, text, attrs);
+    }
   }
 
   async sendSupportTeam(matchKey: string, collegeName: string): Promise<void> {
@@ -132,5 +150,15 @@ export class DanmuService implements IMatchEngagementGateway, IDanmuFilterGatewa
     } finally {
       this.disconnecting = false;
     }
+  }
+
+  private isInvalidMessagingTarget(error: unknown): boolean {
+    if (!error || typeof error !== 'object') {
+      return false;
+    }
+
+    const message = String((error as { message?: unknown }).message ?? '');
+    const code = String((error as { code?: unknown }).code ?? '');
+    return code === 'INVALID_MESSAGING_TARGET' || message.includes('INVALID_MESSAGING_TARGET');
   }
 }

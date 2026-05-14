@@ -31,7 +31,13 @@ import {
 } from '../utils/rmStreamView';
 import { getNowEpochSeconds } from '../utils/timeNow';
 import { normalizeZoneId, resolveZoneUiState, toZoneOptionItem, type ZoneOptionItem } from '../utils/zoneView';
-import type { RmDataInitPayload, RmDataSnapshot, RmDataWorkerIncomingMessage } from './rmDataProtocol';
+import { markPerformance } from '../utils/observability';
+import type {
+  RmDataInitPayload,
+  RmDataSnapshot,
+  RmDataSnapshotPatch,
+  RmDataWorkerIncomingMessage,
+} from './rmDataProtocol';
 
 declare const self: DedicatedWorkerGlobalScope;
 
@@ -78,7 +84,92 @@ let stopped = false;
 let bootstrapToken = 0;
 let streamProbeToken = 0;
 let snapshotTimer: ReturnType<typeof setTimeout> | null = null;
-let pendingSnapshotKind: 'BOOTSTRAP_STATE' | 'PATCH_STATE' | null = null;
+let pendingBootstrapSnapshot = false;
+let pendingPatchKeys = new Set<keyof RmDataSnapshot>();
+let snapshotVersion = 0;
+let lastPostedSnapshot: RmDataSnapshot | null = null;
+
+const SNAPSHOT_KEYS: Array<keyof RmDataSnapshot> = [
+  'liveGameInfo',
+  'currentAndNextMatches',
+  'groupsOrder',
+  'groupRankInfo',
+  'robotData',
+  'schedule',
+  'selectedZoneId',
+  'effectiveSelectedZoneId',
+  'selectedQualityRes',
+  'selectedZoneName',
+  'selectedZoneUiState',
+  'streamLoading',
+  'streamErrorMessage',
+  'zoneOptions',
+  'effectiveStreamUrl',
+  'effectiveStreamErrorMessage',
+  'groupSections',
+  'teamGroupMap',
+  'scheduleEventTitle',
+  'playerQualityOptions',
+  'selectedZoneChatRoomId',
+  'scheduleMatchRows',
+  'runningMatchForSelectedZone',
+];
+
+const STREAM_DOMAIN_KEYS: Array<keyof RmDataSnapshot> = [
+  'liveGameInfo',
+  'selectedZoneId',
+  'effectiveSelectedZoneId',
+  'selectedQualityRes',
+  'selectedZoneName',
+  'selectedZoneUiState',
+  'streamLoading',
+  'streamErrorMessage',
+  'zoneOptions',
+  'effectiveStreamUrl',
+  'effectiveStreamErrorMessage',
+  'playerQualityOptions',
+  'selectedZoneChatRoomId',
+  'groupSections',
+  'teamGroupMap',
+  'scheduleMatchRows',
+  'runningMatchForSelectedZone',
+];
+
+const MATCH_DOMAIN_KEYS: Array<keyof RmDataSnapshot> = [
+  'currentAndNextMatches',
+  'scheduleMatchRows',
+  'runningMatchForSelectedZone',
+];
+
+const GROUP_DOMAIN_KEYS: Array<keyof RmDataSnapshot> = ['groupsOrder', 'groupSections', 'teamGroupMap'];
+
+const STREAM_STATUS_KEYS: Array<keyof RmDataSnapshot> = [
+  'streamLoading',
+  'streamErrorMessage',
+  'effectiveStreamUrl',
+  'effectiveStreamErrorMessage',
+  'selectedZoneUiState',
+  'playerQualityOptions',
+  'selectedZoneChatRoomId',
+];
+
+const SCHEDULE_DOMAIN_KEYS: Array<keyof RmDataSnapshot> = [
+  'schedule',
+  'scheduleEventTitle',
+  'scheduleMatchRows',
+  'runningMatchForSelectedZone',
+  'selectedZoneId',
+  'effectiveSelectedZoneId',
+  'selectedZoneName',
+  'selectedZoneUiState',
+  'zoneOptions',
+  'effectiveStreamUrl',
+  'effectiveStreamErrorMessage',
+  'groupSections',
+  'teamGroupMap',
+  'playerQualityOptions',
+  'selectedZoneChatRoomId',
+];
 
 interface PollingLoop {
   start: () => void;
@@ -216,12 +307,57 @@ function buildSnapshot(): RmDataSnapshot {
   };
 }
 
-function scheduleSnapshot(kind: 'BOOTSTRAP_STATE' | 'PATCH_STATE') {
+function isSnapshotValueEqual(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) {
+    return true;
+  }
+
+  if (a == null || b == null) {
+    return false;
+  }
+
+  if (typeof a !== 'object' || typeof b !== 'object') {
+    return false;
+  }
+
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch {
+    return false;
+  }
+}
+
+function buildSnapshotPatch(
+  nextSnapshot: RmDataSnapshot,
+  prevSnapshot: RmDataSnapshot,
+  keys: Array<keyof RmDataSnapshot>,
+): RmDataSnapshotPatch {
+  const patch: RmDataSnapshotPatch = {};
+  const patchTarget = patch as Record<string, unknown>;
+
+  for (const key of keys) {
+    if (isSnapshotValueEqual(nextSnapshot[key], prevSnapshot[key])) {
+      continue;
+    }
+
+    patchTarget[key] = nextSnapshot[key];
+  }
+
+  return patch;
+}
+
+function scheduleSnapshot(kind: 'BOOTSTRAP_STATE' | 'PATCH_STATE', keys: Array<keyof RmDataSnapshot> = SNAPSHOT_KEYS) {
   if (stopped) {
     return;
   }
 
-  pendingSnapshotKind = pendingSnapshotKind === 'BOOTSTRAP_STATE' ? 'BOOTSTRAP_STATE' : kind;
+  if (kind === 'BOOTSTRAP_STATE') {
+    pendingBootstrapSnapshot = true;
+  } else {
+    for (const key of keys) {
+      pendingPatchKeys.add(key);
+    }
+  }
 
   if (snapshotTimer) {
     clearTimeout(snapshotTimer);
@@ -229,9 +365,43 @@ function scheduleSnapshot(kind: 'BOOTSTRAP_STATE' | 'PATCH_STATE') {
 
   snapshotTimer = setTimeout(() => {
     snapshotTimer = null;
-    const snapshotKind = pendingSnapshotKind ?? 'PATCH_STATE';
-    pendingSnapshotKind = null;
-    self.postMessage({ type: snapshotKind, payload: buildSnapshot() });
+    const snapshot = buildSnapshot();
+
+    if (pendingBootstrapSnapshot || !lastPostedSnapshot) {
+      snapshotVersion += 1;
+      self.postMessage({
+        type: 'BOOTSTRAP_STATE',
+        payload: {
+          version: snapshotVersion,
+          snapshot,
+        },
+      });
+      pendingBootstrapSnapshot = false;
+      pendingPatchKeys.clear();
+      lastPostedSnapshot = snapshot;
+      return;
+    }
+
+    const keysToCompare = pendingPatchKeys.size ? [...pendingPatchKeys] : SNAPSHOT_KEYS;
+    const patch = buildSnapshotPatch(snapshot, lastPostedSnapshot, keysToCompare);
+    pendingPatchKeys.clear();
+
+    if (Object.keys(patch).length === 0) {
+      return;
+    }
+
+    snapshotVersion += 1;
+    self.postMessage({
+      type: 'PATCH_STATE',
+      payload: {
+        version: snapshotVersion,
+        patch,
+      },
+    });
+    lastPostedSnapshot = {
+      ...lastPostedSnapshot,
+      ...patch,
+    } as RmDataSnapshot;
   }, 32);
 }
 
@@ -369,7 +539,7 @@ async function probeSelectedStreamAvailability(options: { showLoading: boolean }
 
   if (options.showLoading) {
     state.streamLoading = true;
-    scheduleSnapshot('PATCH_STATE');
+    scheduleSnapshot('PATCH_STATE', STREAM_STATUS_KEYS);
   }
 
   if (!streamUrl) {
@@ -381,7 +551,7 @@ async function probeSelectedStreamAvailability(options: { showLoading: boolean }
     if (options.showLoading) {
       state.streamLoading = false;
     }
-    scheduleSnapshot('PATCH_STATE');
+    scheduleSnapshot('PATCH_STATE', STREAM_STATUS_KEYS);
     return;
   }
 
@@ -394,7 +564,7 @@ async function probeSelectedStreamAvailability(options: { showLoading: boolean }
   if (options.showLoading) {
     state.streamLoading = false;
   }
-  scheduleSnapshot('PATCH_STATE');
+  scheduleSnapshot('PATCH_STATE', STREAM_STATUS_KEYS);
 }
 
 function stopAll() {
@@ -404,30 +574,37 @@ function stopAll() {
     clearTimeout(snapshotTimer);
     snapshotTimer = null;
   }
-  pendingSnapshotKind = null;
+  pendingBootstrapSnapshot = false;
+  pendingPatchKeys.clear();
+  lastPostedSnapshot = null;
+  snapshotVersion = 0;
   pollingLoops.forEach((loop) => loop.stop());
   pollingLoops.clear();
 }
 
-async function runBootstrap(payload: RmDataInitPayload) {
+async function runBootstrap(_payload: RmDataInitPayload) {
   const token = ++bootstrapToken;
   const startedAt = Date.now();
 
-  const results = await Promise.allSettled([
+  const criticalResultsPromise = Promise.allSettled([
     withBootstrapTimeout(fetchLiveGameInfo(), startedAt),
     withBootstrapTimeout(fetchCurrentAndNextMatches(), startedAt),
     withBootstrapTimeout(fetchGroupsOrder(), startedAt),
+  ]);
+
+  const secondaryResultsPromise = Promise.allSettled([
     withBootstrapTimeout(fetchSchedule(), startedAt),
     withBootstrapTimeout(fetchRobotData(), startedAt),
     withBootstrapTimeout(fetchGroupRankInfo(), startedAt),
   ]);
 
+  const results = await criticalResultsPromise;
+
   if (stopped || token !== bootstrapToken) {
     return;
   }
 
-  const [liveGameInfoResult, currentAndNextResult, groupsOrderResult, scheduleResult, robotResult, groupRankResult] =
-    results;
+  const [liveGameInfoResult, currentAndNextResult, groupsOrderResult] = results;
 
   if (liveGameInfoResult.status === 'fulfilled') {
     state.liveGameInfo = liveGameInfoResult.value;
@@ -438,23 +615,11 @@ async function runBootstrap(payload: RmDataInitPayload) {
   if (groupsOrderResult.status === 'fulfilled') {
     state.groupsOrder = groupsOrderResult.value;
   }
-  if (scheduleResult.status === 'fulfilled') {
-    state.schedule = scheduleResult.value;
-  }
-  if (robotResult.status === 'fulfilled') {
-    state.robotData = robotResult.value;
-  }
-  if (groupRankResult.status === 'fulfilled') {
-    state.groupRankInfo = groupRankResult.value;
-  }
 
   const settledResults: Array<[string, PromiseSettledResult<unknown>]> = [
     ['liveGameInfo', liveGameInfoResult],
     ['currentAndNextMatches', currentAndNextResult],
     ['groupsOrder', groupsOrderResult],
-    ['schedule', scheduleResult],
-    ['robotData', robotResult],
-    ['groupRankInfo', groupRankResult],
   ];
 
   const rejectedSources = settledResults.filter(([, result]) => result.status === 'rejected').map(([name]) => name);
@@ -472,9 +637,46 @@ async function runBootstrap(payload: RmDataInitPayload) {
   }
 
   syncSelectionAfterDataChange();
+  state.streamLoading = false;
+  markPerformance('rm-data-bootstrap-critical-ready');
   scheduleSnapshot('BOOTSTRAP_STATE');
-  void probeSelectedStreamAvailability({ showLoading: true });
-  void payload;
+  void probeSelectedStreamAvailability({ showLoading: false });
+
+  void secondaryResultsPromise.then((secondaryResults) => {
+    if (stopped || token !== bootstrapToken) {
+      return;
+    }
+
+    const [scheduleResult, robotResult, groupRankResult] = secondaryResults;
+    if (scheduleResult.status === 'fulfilled') {
+      state.schedule = scheduleResult.value;
+    }
+    if (robotResult.status === 'fulfilled') {
+      state.robotData = robotResult.value;
+    }
+    if (groupRankResult.status === 'fulfilled') {
+      state.groupRankInfo = groupRankResult.value;
+    }
+
+    const secondarySettledResults: Array<[string, PromiseSettledResult<unknown>]> = [
+      ['schedule', scheduleResult],
+      ['robotData', robotResult],
+      ['groupRankInfo', groupRankResult],
+    ];
+    const secondaryRejectedSources = secondarySettledResults
+      .filter(([, result]) => result.status === 'rejected')
+      .map(([name]) => name);
+
+    if (secondaryRejectedSources.length > 0) {
+      postLog('warn', 'bootstrap', 'secondary bootstrap completed with rejected requests', {
+        rejectedSources: secondaryRejectedSources,
+      });
+    }
+
+    syncSelectionAfterDataChange();
+    markPerformance('rm-data-bootstrap-secondary-ready');
+    scheduleSnapshot('PATCH_STATE');
+  });
 }
 
 function startPollingLoops() {
@@ -495,7 +697,7 @@ function startPollingLoops() {
           if (selectedZone && resolveZoneUiState(selectedZone, getNowEpochSeconds()) === 'live') {
             const message = '直播流暂时不可用，请稍后重试';
             setStreamError(message);
-            scheduleSnapshot('PATCH_STATE');
+            scheduleSnapshot('PATCH_STATE', STREAM_STATUS_KEYS);
           }
           postLog('warn', 'stream', 'live_game_info polling failed', { error: toErrorSummary(error) });
         }
@@ -511,7 +713,7 @@ function startPollingLoops() {
       async () => {
         try {
           state.currentAndNextMatches = await fetchCurrentAndNextMatches();
-          scheduleSnapshot('PATCH_STATE');
+          scheduleSnapshot('PATCH_STATE', MATCH_DOMAIN_KEYS);
         } catch (error) {
           postLog('warn', 'currentAndNextMatches', 'polling failed', { error: toErrorSummary(error) });
         }
@@ -527,7 +729,7 @@ function startPollingLoops() {
       async () => {
         try {
           state.groupsOrder = await fetchGroupsOrder();
-          scheduleSnapshot('PATCH_STATE');
+          scheduleSnapshot('PATCH_STATE', GROUP_DOMAIN_KEYS);
         } catch (error) {
           postLog('warn', 'groupsOrder', 'polling failed', { error: toErrorSummary(error) });
         }
@@ -544,7 +746,7 @@ function startPollingLoops() {
         try {
           state.schedule = await fetchSchedule();
           syncSelectionAfterDataChange();
-          scheduleSnapshot('PATCH_STATE');
+          scheduleSnapshot('PATCH_STATE', SCHEDULE_DOMAIN_KEYS);
         } catch (error) {
           postLog('warn', 'schedule', 'polling failed', { error: toErrorSummary(error) });
         }
@@ -571,6 +773,10 @@ function handleInit(payload: RmDataInitPayload) {
   state.streamLoading = true;
   state.streamErrorMessage = '';
   state.visible = true;
+  pendingBootstrapSnapshot = false;
+  pendingPatchKeys.clear();
+  lastPostedSnapshot = null;
+  snapshotVersion = 0;
   pollingLoops.forEach((loop) => loop.stop());
   pollingLoops.clear();
   void runBootstrap(payload).then(() => {
@@ -613,14 +819,16 @@ self.addEventListener('message', (event: MessageEvent<RmDataWorkerIncomingMessag
     state.selectedZoneId =
       data.payload.zoneId != null && data.payload.zoneId !== '' ? normalizeZoneId(data.payload.zoneId) : null;
     syncSelectionAfterDataChange();
-    void probeSelectedStreamAvailability({ showLoading: true });
+    scheduleSnapshot('PATCH_STATE', STREAM_DOMAIN_KEYS);
+    void probeSelectedStreamAvailability({ showLoading: false });
     return;
   }
 
   if (data.type === 'USER_SELECT_QUALITY') {
     state.selectedQualityRes =
       data.payload.qualityRes && data.payload.qualityRes.trim() ? data.payload.qualityRes : null;
-    void probeSelectedStreamAvailability({ showLoading: true });
+    scheduleSnapshot('PATCH_STATE', STREAM_DOMAIN_KEYS);
+    void probeSelectedStreamAvailability({ showLoading: false });
     return;
   }
 
@@ -641,7 +849,7 @@ self.addEventListener('message', (event: MessageEvent<RmDataWorkerIncomingMessag
       .finally(() => {
         if (state.streamLoading) {
           state.streamLoading = false;
-          scheduleSnapshot('PATCH_STATE');
+          scheduleSnapshot('PATCH_STATE', STREAM_STATUS_KEYS);
         }
       });
   }

@@ -6,10 +6,6 @@ import { useRmDataStore } from '@/stores/rmData';
 import { useUiStore } from '@/stores/ui';
 import { isIFrame, useUserInfoStore } from '@/stores/userInfo';
 import { formatStructuredName, resolveDisplaySchool } from '@/utils/danmuView';
-import Artplayer, { Option } from 'artplayer';
-import artplayerPluginChromecast from 'artplayer-plugin-chromecast';
-import artplayerPluginDanmuku, { type Danmu } from 'artplayer-plugin-danmuku';
-import Hls from 'hls.js/dist/hls.js';
 import { storeToRefs } from 'pinia';
 import Button from 'primevue/button';
 import Message from 'primevue/message';
@@ -18,6 +14,10 @@ import { useToast } from 'primevue/usetoast';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { DanmuAttributes, DanmuMessage } from '../../types/api';
 import DanmuFilterDialog from '../dialogs/DanmuFilterDialog.vue';
+import { markPerformance } from '../../utils/observability';
+import type Artplayer from 'artplayer';
+import type { Option } from 'artplayer';
+import type { Danmu } from 'artplayer-plugin-danmuku';
 
 interface QualityOption {
   label: string;
@@ -50,14 +50,22 @@ const emit = defineEmits<{
 const container = ref<HTMLDivElement | null>(null);
 let player: Artplayer | null = null;
 let playerReady = false;
+const isStreamSwitching = ref(false);
 /** Hls instance for current stream; must be torn down before each new customType load and on player destroy. */
-let liveHls: InstanceType<typeof Hls> | null = null;
+let liveHls: { destroy: () => void } | null = null;
+let hlsMediaRecoveryCount = 0;
+let hlsLastMediaRecoveryAt = 0;
+let currentAppliedStreamUrl: string | null = null;
+let streamSwitchToken = 0;
+let latestRequestedStreamUrl: string | null = null;
 let danmukuPlugin: any = null;
 const pendingDanmuQueue: DanmuMessage[] = [];
 const danmuService = ref<DanmuService | null>(null);
 let currentRoomId: string | null = null;
+let pendingRoomId: string | null = null;
 let roomSwitchToken = 0;
 let connectingService: DanmuService | null = null;
+let playerMountToken = 0;
 
 const danmuFilterStore = useDanmuFilterStore();
 const matchEngagementStore = useMatchEngagementStore();
@@ -133,6 +141,22 @@ function resolveSpecialDanmuStyleBySchool(message: DanmuMessage): TrackDanmuStyl
   return undefined;
 }
 
+function buildLocalEchoDanmu(text: string, attrs: DanmuAttributes): DanmuMessage {
+  const now = Date.now();
+  return {
+    id: `local-${now}-${Math.random().toString(36).slice(2, 8)}`,
+    timestamp: now,
+    text,
+    username: String(attrs.username ?? ''),
+    nickname: attrs.nickname,
+    schoolName: attrs.schoolName,
+    badge: attrs.badge,
+    source: 'realtime',
+    ...(attrs.mode !== undefined ? { mode: attrs.mode } : {}),
+    ...(attrs.color ? { color: attrs.color } : {}),
+  };
+}
+
 async function sendDanmuByRealtime(d: Danmu): Promise<boolean> {
   const content = String(d?.text ?? '').trim();
   if (!content) {
@@ -175,12 +199,14 @@ async function sendDanmuByRealtime(d: Danmu): Promise<boolean> {
 
   try {
     await danmuService.value.sendMessage(content, myAttributes);
+    // Return true so the plugin clears input and emits to track immediately.
+    emit('danmu', buildLocalEchoDanmu(content, myAttributes));
+    return true;
   } catch (error) {
     console.error('[LivePlayer] Failed to send danmu:', error);
     toast.add({ severity: 'error', summary: '发送失败', detail: '弹幕发送失败，请稍后重试' });
+    return false;
   }
-
-  return false; // 阻止 artplayer 插件的默认发送行为
 }
 
 function destroyAttachedHls() {
@@ -188,6 +214,8 @@ function destroyAttachedHls() {
     liveHls.destroy();
     liveHls = null;
   }
+  hlsMediaRecoveryCount = 0;
+  hlsLastMediaRecoveryAt = 0;
 }
 
 async function exitPipIfNeeded() {
@@ -225,14 +253,52 @@ async function destroyDanmu() {
 }
 
 function destroyPlayer() {
+  playerMountToken += 1;
+  streamSwitchToken += 1;
+  isStreamSwitching.value = false;
   destroyAttachedHls();
   if (player) {
     player.destroy(false);
     player = null;
   }
+  currentAppliedStreamUrl = null;
   danmukuPlugin = null;
   playerReady = false;
   pendingDanmuQueue.length = 0;
+}
+
+function waitForVideoPlayable(video: HTMLVideoElement | null, timeoutMs = 2200): Promise<void> {
+  if (!video) {
+    return Promise.resolve();
+  }
+
+  if (video.readyState >= 3 && !video.paused) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const cleanup = () => {
+      video.removeEventListener('canplay', onReady);
+      video.removeEventListener('playing', onReady);
+      video.removeEventListener('loadeddata', onReady);
+    };
+    const finish = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      resolve();
+    };
+    const onReady = () => finish();
+
+    video.addEventListener('canplay', onReady, { once: true });
+    video.addEventListener('playing', onReady, { once: true });
+    video.addEventListener('loadeddata', onReady, { once: true });
+
+    setTimeout(() => finish(), timeoutMs);
+  });
 }
 
 function pushDanmuToPlayer(msg: DanmuMessage) {
@@ -281,6 +347,29 @@ function createDebugDanmu(text?: string): DanmuMessage {
     badge: 'DEBUG',
     source: 'realtime',
   };
+}
+
+function syncDanmuConnection() {
+  if (!danmuEnabledAtLoad) {
+    currentRoomId = null;
+    pendingRoomId = null;
+    roomSwitchToken += 1;
+    void destroyDanmu();
+    return;
+  }
+
+  if (!playerReady) {
+    return;
+  }
+
+  if (!pendingRoomId) {
+    currentRoomId = null;
+    roomSwitchToken += 1;
+    void destroyDanmu();
+    return;
+  }
+
+  void initDanmu(pendingRoomId);
 }
 
 function exposeDanmuDebugApi() {
@@ -444,11 +533,29 @@ async function mountPlayer(url: string) {
   }
 
   destroyPlayer();
+  const mountToken = ++playerMountToken;
+  markPerformance('rm-player-mount-start');
+
+  const [artplayerModule, hlsModule, danmukuModule, chromecastModule] = await Promise.all([
+    import('artplayer'),
+    import('hls.js/dist/hls.js'),
+    danmuEnabledAtLoad ? import('artplayer-plugin-danmuku') : Promise.resolve(null),
+    uiStore.isMobile ? Promise.resolve(null) : import('artplayer-plugin-chromecast'),
+  ]);
+
+  if (mountToken !== playerMountToken || !container.value) {
+    return;
+  }
+
+  const ArtplayerCtor = artplayerModule.default;
+  const HlsCtor = hlsModule.default;
+  const artplayerPluginDanmuku = danmukuModule?.default;
+  const artplayerPluginChromecast = chromecastModule?.default;
 
   const qualityItems = buildQualityItems();
 
   const plugins: any[] = [];
-  if (danmuEnabledAtLoad) {
+  if (danmuEnabledAtLoad && artplayerPluginDanmuku) {
     plugins.push(
       artplayerPluginDanmuku({
         danmuku: [],
@@ -466,7 +573,7 @@ async function mountPlayer(url: string) {
   }
 
   // PC端启用 Chromecast
-  if (!uiStore.isMobile) {
+  if (!uiStore.isMobile && artplayerPluginChromecast) {
     plugins.push(artplayerPluginChromecast({}));
   }
 
@@ -520,18 +627,93 @@ async function mountPlayer(url: string) {
     customType: {
       m3u8(video: HTMLVideoElement, m3u8Url: string) {
         destroyAttachedHls();
-        if (Hls.isSupported()) {
-          const hls = new Hls({
-            lowLatencyMode: true,
+        if (HlsCtor.isSupported()) {
+          const hlsErrorEvent = (HlsCtor as any).Events?.ERROR ?? 'hlsError';
+          const hlsNetworkErrorType = (HlsCtor as any).ErrorTypes?.NETWORK_ERROR ?? 'networkError';
+          const hlsMediaErrorType = (HlsCtor as any).ErrorTypes?.MEDIA_ERROR ?? 'mediaError';
+          const hlsBufferStalledDetail = (HlsCtor as any).ErrorDetails?.BUFFER_STALLED_ERROR ?? 'bufferStalledError';
+
+          const hls = new HlsCtor({
+            // Favor stability over ultra-low latency to avoid frequent stalls on mobile networks.
+            lowLatencyMode: false,
             liveDurationInfinity: true,
-            liveSyncMode: 'edge',
-            backBufferLength: 8,
-            maxBufferLength: 10,
-            maxMaxBufferLength: 30,
+            liveSyncMode: 'buffered',
+            backBufferLength: 20,
+            maxBufferLength: 20,
+            maxMaxBufferLength: 40,
+            maxBufferHole: 0.8,
             liveSyncDurationCount: 3,
-            maxLiveSyncPlaybackRate: 1.0,
-            liveSyncOnStallIncrease: 0.25,
+            maxLiveSyncPlaybackRate: 1.2,
+            liveSyncOnStallIncrease: 1,
+            nudgeOffset: 0.12,
+            nudgeMaxRetry: 8,
+            enableWorker: true,
+            startFragPrefetch: true,
+            testBandwidth: false,
+            manifestLoadingMaxRetry: 4,
+            manifestLoadingRetryDelay: 500,
+            manifestLoadingMaxRetryTimeout: 4000,
+            levelLoadingMaxRetry: 5,
+            levelLoadingRetryDelay: 700,
+            levelLoadingMaxRetryTimeout: 6000,
+            fragLoadingMaxRetry: 6,
+            fragLoadingRetryDelay: 800,
+            fragLoadingMaxRetryTimeout: 10000,
+            startLevel: -1,
           });
+
+          hls.on(hlsErrorEvent, (_event: unknown, data: any) => {
+            if (!data) {
+              return;
+            }
+
+            if (data.fatal) {
+              if (data.type === hlsNetworkErrorType) {
+                console.warn('[LivePlayer] HLS fatal network error, restart loading', data);
+                hls.startLoad();
+                return;
+              }
+
+              if (data.type === hlsMediaErrorType) {
+                const now = Date.now();
+                if (now - hlsLastMediaRecoveryAt > 15000) {
+                  hlsMediaRecoveryCount = 0;
+                }
+                hlsLastMediaRecoveryAt = now;
+                hlsMediaRecoveryCount += 1;
+
+                if (hlsMediaRecoveryCount <= 2) {
+                  console.warn('[LivePlayer] HLS fatal media error, recover media', data);
+                  hls.recoverMediaError();
+                  return;
+                }
+
+                if (hlsMediaRecoveryCount === 3 && typeof hls.swapAudioCodec === 'function') {
+                  console.warn('[LivePlayer] HLS media error persists, swap audio codec + recover', data);
+                  hls.swapAudioCodec();
+                  hls.recoverMediaError();
+                  return;
+                }
+
+                console.warn('[LivePlayer] HLS media error recovery exhausted, remount stream', data);
+                emit('retry');
+                return;
+              }
+
+              console.warn('[LivePlayer] HLS unrecoverable fatal error, remount stream', data);
+              emit('retry');
+              return;
+            }
+
+            if (data.details === hlsBufferStalledDetail) {
+              try {
+                void video.play();
+              } catch {
+                // ignore auto-play rejection; user can continue manually
+              }
+            }
+          });
+
           liveHls = hls;
           hls.loadSource(m3u8Url);
           hls.attachMedia(video);
@@ -542,16 +724,23 @@ async function mountPlayer(url: string) {
     },
   };
 
-  player = new Artplayer(playerOptions);
+  player = new ArtplayerCtor(playerOptions);
+  currentAppliedStreamUrl = url;
   applyMobileInlineVideoAttrs();
   danmukuPlugin = danmuEnabledAtLoad ? (player as any).plugins?.artplayerPluginDanmuku : null;
 
   // Some browsers still require an explicit play attempt after source mount.
   player.on('ready', () => {
+    if (mountToken !== playerMountToken) {
+      return;
+    }
+
     playerReady = true;
     applyMobileInlineVideoAttrs();
+    markPerformance('rm-player-ready');
     danmukuPlugin = danmuEnabledAtLoad ? (player as any).plugins?.artplayerPluginDanmuku : null;
     updateQualityControl();
+    syncDanmuConnection();
     flushPendingDanmu();
     try {
       player?.play();
@@ -575,23 +764,65 @@ async function applyStreamUrl(url: string) {
     return;
   }
 
+  latestRequestedStreamUrl = url;
+  const requestToken = ++streamSwitchToken;
+
+  markPerformance('rm-player-url-applied');
+
+  if (url === currentAppliedStreamUrl && player && playerReady) {
+    if (requestToken === streamSwitchToken) {
+      isStreamSwitching.value = false;
+    }
+    return;
+  }
+
   if (player && playerReady) {
+    isStreamSwitching.value = true;
     try {
       await exitPipIfNeeded();
+      if (requestToken !== streamSwitchToken) {
+        return;
+      }
       await player.switchUrl(url);
+      if (requestToken !== streamSwitchToken) {
+        const pending = latestRequestedStreamUrl;
+        if (pending && pending !== url) {
+          void applyStreamUrl(pending);
+        }
+        return;
+      }
+      currentAppliedStreamUrl = url;
+      const video = container.value?.querySelector('video') ?? null;
+      await waitForVideoPlayable(video);
+      if (requestToken !== streamSwitchToken) {
+        const pending = latestRequestedStreamUrl;
+        if (pending && pending !== url) {
+          void applyStreamUrl(pending);
+        }
+        return;
+      }
       updateQualityControl();
       return;
     } catch (error) {
       console.warn('[LivePlayer] switchUrl failed, remounting player', error);
+    } finally {
+      if (requestToken === streamSwitchToken) {
+        isStreamSwitching.value = false;
+      }
     }
   }
 
+  isStreamSwitching.value = true;
   await mountPlayer(url);
+  if (requestToken === streamSwitchToken) {
+    isStreamSwitching.value = false;
+  }
 }
 
 watch(
   () => props.chatRoomId,
   (roomId) => {
+    pendingRoomId = roomId ?? null;
     if (!danmuEnabledAtLoad) {
       currentRoomId = null;
       roomSwitchToken += 1;
@@ -599,13 +830,7 @@ watch(
       return;
     }
     pendingDanmuQueue.length = 0;
-    if (roomId) {
-      void initDanmu(roomId);
-    } else {
-      currentRoomId = null;
-      roomSwitchToken += 1;
-      void destroyDanmu();
-    }
+    syncDanmuConnection();
   },
   { immediate: true },
 );
@@ -681,6 +906,11 @@ onBeforeUnmount(async () => {
       <Message severity="warn" :closable="false"> 暂未获取到直播流地址 </Message>
     </div>
 
+    <div v-if="isStreamSwitching && !loading && !errorMessage" class="overlay center overlay-soft" aria-live="polite">
+      <ProgressSpinner style="width: 2rem; height: 2rem" strokeWidth="6" />
+      <span class="switching-tip">切换清晰度中...</span>
+    </div>
+
     <div ref="container" class="player-container" />
 
     <DanmuFilterDialog v-if="danmuEnabledAtLoad" v-model:visible="filterDialogVisible" />
@@ -719,6 +949,16 @@ onBeforeUnmount(async () => {
 
 .center {
   text-align: center;
+}
+
+.overlay-soft {
+  z-index: 3;
+  background: linear-gradient(180deg, rgba(9, 16, 33, 0.08), rgba(9, 16, 33, 0.35));
+}
+
+.switching-tip {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.92);
 }
 
 .retry-btn {

@@ -20,6 +20,15 @@ const props = withDefaults(defineProps<Props>(), {
 
 const logoUrl = computed(() => (props.logo ? buildImageUrl(props.logo) : ''));
 
+const placeholderText = computed(() => {
+  const value = String(props.teamName ?? '').trim();
+  if (!value) {
+    return '';
+  }
+
+  return [...value].slice(0, 2).join('');
+});
+
 const wrapperStyle = computed(() => {
   if (props.customSize) {
     return {
@@ -42,14 +51,16 @@ const wrapperStyle = computed(() => {
 
 <template>
   <div
-    v-if="logoUrl"
     class="team-logo-wrapper"
-    :class="{ rounded: rounded, square: !rounded }"
+    :class="{ rounded: rounded, square: !rounded, placeholder: !logoUrl }"
     :style="{
       ...wrapperStyle,
     }"
+    :aria-label="teamName"
+    role="img"
   >
-    <img :src="logoUrl" :alt="teamName" class="team-logo-img" />
+    <img v-if="logoUrl" :src="logoUrl" :alt="teamName" class="team-logo-img" decoding="async" />
+    <span v-else class="team-logo-placeholder">{{ placeholderText }}</span>
   </div>
 </template>
 
@@ -61,6 +72,10 @@ const wrapperStyle = computed(() => {
   background-color: white;
   flex-shrink: 0;
   overflow: hidden;
+  color: var(--text-color-secondary);
+  font-weight: 700;
+  font-size: 0.72em;
+  line-height: 1;
 }
 
 .team-logo-wrapper.rounded {
@@ -75,5 +90,21 @@ const wrapperStyle = computed(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.team-logo-wrapper.placeholder {
+  background: linear-gradient(135deg, rgba(148, 163, 184, 0.18), rgba(148, 163, 184, 0.08));
+  border: 1px solid rgba(148, 163, 184, 0.28);
+}
+
+.team-logo-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  user-select: none;
 }
 </style>

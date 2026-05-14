@@ -44,6 +44,18 @@ export interface RmDataSnapshot {
   runningMatchForSelectedZone: MatchView | null;
 }
 
+export type RmDataSnapshotPatch = Partial<RmDataSnapshot>;
+
+export interface RmDataBootstrapPayload {
+  version: number;
+  snapshot: RmDataSnapshot;
+}
+
+export interface RmDataPatchPayload {
+  version: number;
+  patch: RmDataSnapshotPatch;
+}
+
 export type RmDataWorkerIncomingMessage =
   | { type: 'INIT'; payload: RmDataInitPayload }
   | { type: 'USER_SELECT_ZONE'; payload: { zoneId: string | null } }
@@ -53,8 +65,8 @@ export type RmDataWorkerIncomingMessage =
   | { type: 'STOP' };
 
 export type RmDataWorkerOutgoingMessage =
-  | { type: 'BOOTSTRAP_STATE'; payload: RmDataSnapshot }
-  | { type: 'PATCH_STATE'; payload: RmDataSnapshot }
+  | { type: 'BOOTSTRAP_STATE'; payload: RmDataBootstrapPayload }
+  | { type: 'PATCH_STATE'; payload: RmDataPatchPayload }
   | { type: 'STREAM_ERROR'; payload: { message: string } }
   | {
       type: 'LOG';

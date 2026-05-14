@@ -29,6 +29,7 @@
     "hls.js": "^1.6.15",
     "leancloud-realtime": "5.0.0-rc.8",
     "pinia": "^3.0.4",
+    "pinia-plugin-persistedstate": "^4.7.1",
     "primeicons": "^7.0.0",
     "primevue": "^4.5.4",
     "uuid": "^13.0.0",
