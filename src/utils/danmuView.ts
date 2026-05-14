@@ -23,11 +23,8 @@ export function parseStructuredName(name: string): ParsedNameMeta | null {
     return null;
   }
 
-  const parts = raw
-    .split('-')
-    .map((part) => part.trim())
-    .filter(Boolean);
-  if (parts.length < 4) {
+  const parts = raw.split('-').map((part) => part.trim());
+  if (parts.length < 4 || parts.slice(1).some((part) => !part)) {
     return null;
   }
 
@@ -35,7 +32,7 @@ export function parseStructuredName(name: string): ParsedNameMeta | null {
   const nickname = rest.join('-').trim();
 
   return {
-    year,
+    year: normalizeRacingYear(year),
     role,
     school,
     nickname,
@@ -44,7 +41,16 @@ export function parseStructuredName(name: string): ParsedNameMeta | null {
 
 export function formatStructuredName(meta: Partial<ParsedNameMeta>): string {
   const { year, role, school, nickname } = meta;
-  return [year, role, school, nickname].join('-');
+  return [normalizeRacingYear(year), role, school, nickname].join('-');
+}
+
+function normalizeRacingYear(year: string | number | null | undefined): string {
+  const raw = String(year ?? '').trim();
+  if (!raw || /^0+$/.test(raw)) {
+    return '';
+  }
+
+  return raw;
 }
 
 export function resolveDisplaySchool(msg: DanmuMessage): string {
@@ -78,10 +84,7 @@ export function resolveTooltipMeta(msg: DanmuMessage): DanmuTooltipMeta {
   const school = resolveDisplaySchool(msg);
   const nickname = resolveDisplayNickname(msg);
   const username = String(msg.username || '').trim();
-  const parsedJoined = parsed
-    ? [parsed.year, parsed.role, parsed.school, parsed.nickname].filter(Boolean).join('-')
-    : '';
-  const shouldShowUsername = Boolean(username && (!parsed || username !== parsedJoined));
+  const shouldShowUsername = Boolean(username && !parsed);
 
   return {
     school,

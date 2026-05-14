@@ -182,6 +182,15 @@ function buildLocalEchoDanmu(text: string, attrs: DanmuAttributes): DanmuMessage
   };
 }
 
+function formatRacingAge(value: number | string | null | undefined): string {
+  const raw = String(value ?? '').trim();
+  if (!raw || /^0+$/.test(raw)) {
+    return '';
+  }
+
+  return raw;
+}
+
 async function sendDanmuByRealtime(d: Danmu): Promise<boolean> {
   const content = String(d?.text ?? '').trim();
   if (!content) {
@@ -198,15 +207,16 @@ async function sendDanmuByRealtime(d: Danmu): Promise<boolean> {
     return false;
   }
 
+  const racingAge = formatRacingAge(userInfoStore.userInfo.racingAge);
   const myAttributes: DanmuAttributes = {
     nickname: userInfoStore.userInfo.nickname || '',
     schoolName: userInfoStore.userInfo.school || '',
     badge: userInfoStore.userInfo.badge?.[0] || '',
-    racingAge: String(userInfoStore.userInfo.racingAge ?? ''),
+    racingAge,
     position: userInfoStore.userInfo.role || '',
     isAdmin: false,
     username: formatStructuredName({
-      year: userInfoStore.userInfo.racingAge ? `${userInfoStore.userInfo.racingAge}` : '',
+      year: racingAge,
       role: userInfoStore.userInfo.role || '',
       school: userInfoStore.userInfo.school || '',
       nickname: userInfoStore.userInfo.nickname || '',

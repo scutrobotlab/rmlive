@@ -30,6 +30,18 @@ describe('danmuView', () => {
       school: 'SCUT',
       nickname: '橘子',
     });
+    expect(parseStructuredName('0-校友-SCUT-橘子')).toEqual({
+      year: '',
+      role: '校友',
+      school: 'SCUT',
+      nickname: '橘子',
+    });
+    expect(parseStructuredName('-校友-SCUT-橘子')).toEqual({
+      year: '',
+      role: '校友',
+      school: 'SCUT',
+      nickname: '橘子',
+    });
     expect(parseStructuredName('x-y-z')).toBeNull();
   });
 
@@ -58,6 +70,18 @@ describe('danmuView', () => {
     expect(meta.username).toBe('');
     expect(meta.sourceLabel).toBe('实时弹幕');
     expect(meta.timeLabel).toMatch(/^\d{2}:\d{2}:\d{2}$/);
+  });
+
+  it('treats racing year 0 as empty while preserving role', () => {
+    const msg = createMessage({ username: '0-校友-SCUT-橘子' });
+    const meta = resolveTooltipMeta(msg);
+    const text = resolveTooltipText(msg);
+
+    expect(meta.year).toBe('');
+    expect(meta.role).toBe('校友');
+    expect(meta.username).toBe('');
+    expect(text).not.toContain('参赛年份: 0');
+    expect(text).toContain('身份: 校友');
   });
 
   it('keeps raw username when different from structured form', () => {

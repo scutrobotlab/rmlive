@@ -91,7 +91,13 @@ onBeforeUnmount(() => {
   clearHideTimer();
 });
 
-const year = computed(() => `${tooltipMeta.value.year}年${tooltipMeta.value.role}`);
+const year = computed(() => {
+  if (!tooltipMeta.value.year) {
+    return tooltipMeta.value.role;
+  }
+
+  return `${tooltipMeta.value.year}年${tooltipMeta.value.role}`;
+});
 
 const filter = useDanmuFilterStore();
 const toast = useToast();
@@ -137,7 +143,7 @@ const addFilterSchool = () => {
             <p class="danmu-tooltip-message">{{ message.text }}</p>
             <div class="danmu-tooltip-tags">
               <Tag v-if="tooltipMeta.school" :value="tooltipMeta.school" severity="success" />
-              <Tag v-if="tooltipMeta.year" :value="year" severity="secondary" />
+              <Tag v-if="tooltipMeta.year || tooltipMeta.role" :value="year" severity="secondary" />
             </div>
             <p v-if="tooltipMeta.username" class="danmu-tooltip-raw">{{ tooltipMeta.username }}</p>
             <p class="danmu-tooltip-time">{{ tooltipMeta.timeLabel }}</p>
