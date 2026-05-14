@@ -25,10 +25,17 @@ interface QualityOption {
   src: string;
 }
 
+interface PerspectiveOption {
+  label: string;
+  value: string;
+}
+
 interface Props {
   streamUrl: string | null;
   loading: boolean;
   errorMessage: string;
+  perspectiveOptions?: PerspectiveOption[];
+  selectedPerspectiveKey?: string | null;
   qualityOptions?: QualityOption[];
   selectedQualityRes?: string | null;
   chatRoomId?: string | null;
@@ -43,6 +50,8 @@ const danmuEnabledAtLoad = Boolean(uiStore.danmuEnabled);
 
 const emit = defineEmits<{
   retry: [];
+  perspectiveChange: [perspectiveKey: string];
+  qualityChange: [qualityRes: string];
   danmu: [msg: DanmuMessage];
   danmuReset: [];
 }>();
@@ -490,8 +499,75 @@ function buildQualityItems() {
     .map((item) => ({
       html: item.label,
       url: item.src,
+      value: item.value,
       default: item.value === props.selectedQualityRes,
     }));
+}
+
+function buildPlayerSettings() {
+  const settings: NonNullable<Option['settings']> = [];
+
+  const perspectiveOptions = props.perspectiveOptions ?? [];
+  if (perspectiveOptions.length > 1) {
+    const selectedPerspective =
+      perspectiveOptions.find((item) => item.value === props.selectedPerspectiveKey) ?? perspectiveOptions[0];
+    settings.push({
+      name: 'perspective',
+      html: '视角',
+      tooltip: selectedPerspective?.label ?? '主视角',
+      icon: '',
+      selector: perspectiveOptions.map((item) => ({
+        html: item.label,
+        value: item.value,
+        default: item.value === selectedPerspective?.value,
+      })),
+      onSelect(item) {
+        const value = typeof item.value === 'string' ? item.value : '';
+        if (value) {
+          emit('perspectiveChange', value);
+        }
+        return item.html;
+      },
+    });
+  }
+
+  if (danmuEnabledAtLoad) {
+    settings.push({
+      html: filterActive.value ? `过滤 ${activeFilterCount.value}` : '过滤',
+      tooltip: filterSummary.value,
+      name: 'danmu-filter',
+      icon: '',
+      style: {
+        color: filterActive.value ? '#ffd04b' : '#fff',
+      },
+      onClick() {
+        filterDialogVisible.value = true;
+      },
+    });
+  }
+
+  return settings;
+}
+
+function updatePerspectiveSetting() {
+  if (!player || !playerReady) {
+    return;
+  }
+
+  const perspectiveSetting = buildPlayerSettings().find((item) => item.name === 'perspective');
+  const p = player as Artplayer & {
+    setting?: { update?: (option: NonNullable<Option['settings']>[number]) => void; remove?: (name: string) => void };
+  };
+
+  try {
+    if (perspectiveSetting) {
+      p.setting?.update?.(perspectiveSetting);
+    } else {
+      p.setting?.remove?.('perspective');
+    }
+  } catch {
+    // Ignore menu refresh races while Artplayer is mounting.
+  }
 }
 
 function updateQualityControl() {
@@ -509,6 +585,39 @@ function updateQualityControl() {
       // no quality control to remove
     }
   }
+}
+
+function patchNativeQualityChange() {
+  const currentPlayer = player as (Artplayer & { switchQuality?: (url: string) => Promise<void> }) | null;
+  if (!currentPlayer?.switchQuality) {
+    return;
+  }
+
+  const originalSwitchQuality = currentPlayer.switchQuality.bind(currentPlayer);
+  currentPlayer.switchQuality = async (url: string) => {
+    const matched = (props.qualityOptions ?? []).find((item) => item.src === url);
+    await originalSwitchQuality(url);
+    currentAppliedStreamUrl = url;
+    if (matched?.value) {
+      emit('qualityChange', matched.value);
+    }
+  };
+}
+
+function applyMobileInlineVideoAttrs() {
+  if (!uiStore.isMobile) {
+    return;
+  }
+
+  const video = container.value?.querySelector('video');
+  if (!video) {
+    return;
+  }
+
+  video.setAttribute('playsinline', 'true');
+  video.setAttribute('webkit-playsinline', 'true');
+  video.setAttribute('x5-playsinline', 'true');
+  video.setAttribute('x5-video-player-type', 'h5-page');
 }
 
 async function mountPlayer(url: string) {
@@ -537,6 +646,7 @@ async function mountPlayer(url: string) {
   const artplayerPluginChromecast = chromecastModule?.default;
 
   const qualityItems = buildQualityItems();
+  const playerSettings = buildPlayerSettings();
 
   const plugins: any[] = [];
   if (danmuEnabledAtLoad && artplayerPluginDanmuku) {
@@ -578,8 +688,8 @@ async function mountPlayer(url: string) {
     subtitleOffset: false,
     hotkey: true,
     pip: !uiStore.isMobile,
-    fullscreen: true,
-    fullscreenWeb: !uiStore.isMobile,
+    fullscreen: !uiStore.isMobile,
+    fullscreenWeb: true,
     ...(qualityItems.length > 1 ? { quality: qualityItems } : {}),
     airplay: true,
     gesture: true,
@@ -589,22 +699,10 @@ async function mountPlayer(url: string) {
     playsInline: true,
     autoOrientation: true,
     lock: true,
-    settings: danmuEnabledAtLoad
-      ? [
-          {
-            html: filterActive.value ? `过滤 ${activeFilterCount.value}` : '过滤',
-            tooltip: filterSummary.value,
-            name: 'danmu-filter',
-            icon: '',
-            style: {
-              color: filterActive.value ? '#ffd04b' : '#fff',
-            },
-            onClick() {
-              filterDialogVisible.value = true;
-            },
-          },
-        ]
-      : [],
+    moreVideoAttr: {
+      playsInline: true,
+    },
+    settings: playerSettings,
     customType: {
       m3u8(video: HTMLVideoElement, m3u8Url: string) {
         destroyAttachedHls();
@@ -707,6 +805,8 @@ async function mountPlayer(url: string) {
 
   player = new ArtplayerCtor(playerOptions);
   currentAppliedStreamUrl = url;
+  patchNativeQualityChange();
+  applyMobileInlineVideoAttrs();
   danmukuPlugin = danmuEnabledAtLoad ? (player as any).plugins?.artplayerPluginDanmuku : null;
 
   // Some browsers still require an explicit play attempt after source mount.
@@ -716,9 +816,11 @@ async function mountPlayer(url: string) {
     }
 
     playerReady = true;
+    applyMobileInlineVideoAttrs();
     markPerformance('rm-player-ready');
     danmukuPlugin = danmuEnabledAtLoad ? (player as any).plugins?.artplayerPluginDanmuku : null;
     updateQualityControl();
+    updatePerspectiveSetting();
     syncDanmuConnection();
     flushPendingDanmu();
     try {
@@ -853,6 +955,13 @@ watch(
     if (player && playerReady) {
       updateQualityControl();
     }
+  },
+);
+
+watch(
+  () => [props.perspectiveOptions, props.selectedPerspectiveKey] as const,
+  () => {
+    updatePerspectiveSetting();
   },
 );
 

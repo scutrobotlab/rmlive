@@ -166,6 +166,13 @@ export interface LiveQualityOption {
   src: string;
 }
 
+export interface LivePerspectiveOption {
+  key: string;
+  label: string;
+  headimg: string | null;
+  qualities: LiveQualityOption[];
+}
+
 export interface LiveZoneOption {
   zoneId: string;
   zoneName: string;
@@ -175,6 +182,7 @@ export interface LiveZoneOption {
   endAt: number | null;
   zoneDates: string[];
   qualities: LiveQualityOption[];
+  perspectives: LivePerspectiveOption[];
 }
 
 function toStartAt(value: unknown): number | null {
@@ -265,6 +273,40 @@ export function extractLiveZones(data: LiveGameInfo | null): LiveZoneOption[] {
       const qualities = source
         .map((item, qualityIndex) => toQualityOption(item, qualityIndex))
         .filter((item): item is LiveQualityOption => item !== null);
+      const perspectives: LivePerspectiveOption[] = [
+        {
+          key: 'main',
+          label: '主视角',
+          headimg: null,
+          qualities,
+        },
+      ];
+
+      if (Array.isArray(zone.fpvData)) {
+        zone.fpvData.forEach((item, perspectiveIndex) => {
+          const perspectiveQualities = Array.isArray(item.sources)
+            ? item.sources
+                .map((sourceItem, qualityIndex) => toQualityOption(sourceItem, qualityIndex))
+                .filter((quality): quality is LiveQualityOption => quality !== null)
+            : [];
+          if (!perspectiveQualities.length) {
+            return;
+          }
+
+          const label =
+            typeof item.role === 'string' && item.role.trim()
+              ? item.role.trim()
+              : `第一视角 ${perspectiveIndex + 1}`;
+          const headimg = typeof item.headimg === 'string' && item.headimg.trim() ? item.headimg.trim() : null;
+
+          perspectives.push({
+            key: `fpv-${perspectiveIndex}`,
+            label,
+            headimg,
+            qualities: perspectiveQualities,
+          });
+        });
+      }
 
       return {
         zoneId,
@@ -275,6 +317,7 @@ export function extractLiveZones(data: LiveGameInfo | null): LiveZoneOption[] {
         endAt: endAt ?? dateEndAt,
         zoneDates,
         qualities,
+        perspectives,
       };
     })
     .sort((a, b) => {
@@ -323,6 +366,7 @@ export function resolveLiveStreamUrl(
   data: LiveGameInfo | null,
   zoneId: string | null,
   qualityRes: string | null,
+  perspectiveKey = 'main',
 ): string | null {
   const zones = extractLiveZones(data);
   if (!zones.length) {
@@ -334,7 +378,10 @@ export function resolveLiveStreamUrl(
   const z = normalizeZoneId(zoneId);
   const selectedZone =
     zones.find((item) => normalizeZoneId(item.zoneId) === z) ?? zones[0];
-  const selectedQuality = selectedZone.qualities.find((item) => item.res === qualityRes);
+  const selectedPerspective =
+    selectedZone.perspectives.find((item) => item.key === perspectiveKey) ?? selectedZone.perspectives[0];
+  const qualities = selectedPerspective?.qualities ?? selectedZone.qualities;
+  const selectedQuality = qualities.find((item) => item.res === qualityRes);
 
-  return selectedQuality?.src ?? selectedZone.qualities[0]?.src ?? null;
+  return selectedQuality?.src ?? qualities[0]?.src ?? null;
 }

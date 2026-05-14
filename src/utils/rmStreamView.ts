@@ -17,6 +17,11 @@ export interface PlayerQualityOption {
   src: string;
 }
 
+export interface PlayerPerspectiveOption {
+  label: string;
+  value: string;
+}
+
 export function toPlayerQualityOptions(zone: PlayableZoneLike | null): PlayerQualityOption[] {
   if (!zone) {
     return [];
@@ -26,6 +31,15 @@ export function toPlayerQualityOptions(zone: PlayableZoneLike | null): PlayerQua
     label: item.label,
     value: item.res,
     src: item.src,
+  }));
+}
+
+export function toPlayerPerspectiveOptions(
+  perspectives: Array<{ key: string; label: string }> | null | undefined,
+): PlayerPerspectiveOption[] {
+  return (perspectives ?? []).map((item) => ({
+    label: item.label,
+    value: item.key,
   }));
 }
 
