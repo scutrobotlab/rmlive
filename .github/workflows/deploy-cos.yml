@@ -44,3 +44,16 @@ jobs:
           local_path: dist
           remote_path: /
           clean: true
+
+      - name: Prevent stale app shell and service worker cache
+        run: |
+          pipx install coscmd
+          coscmd config \
+            -a "${{ secrets.TENCENT_CLOUD_SECRET_ID }}" \
+            -s "${{ secrets.TENCENT_CLOUD_SECRET_KEY }}" \
+            -b "${{ secrets.COS_BUCKET }}" \
+            -r "${{ secrets.COS_REGION }}"
+          coscmd upload -f -y -H '{"Cache-Control":"no-cache, no-store, must-revalidate"}' dist/index.html /index.html
+          coscmd upload -f -y -H '{"Cache-Control":"no-cache, no-store, must-revalidate"}' dist/sw.js /sw.js
+          coscmd upload -f -y -H '{"Cache-Control":"no-cache, no-store, must-revalidate"}' dist/manifest.webmanifest /manifest.webmanifest
+          coscmd upload -f -y -H '{"Cache-Control":"no-cache, no-store, must-revalidate"}' dist/iframe-inject.js /iframe-inject.js

@@ -848,7 +848,8 @@ function applyMobileInlineVideoAttrs() {
   video.setAttribute('playsinline', 'true');
   video.setAttribute('webkit-playsinline', 'true');
   video.setAttribute('x5-playsinline', 'true');
-  video.setAttribute('x5-video-player-type', 'h5-page');
+  video.setAttribute('x5-video-orientation', 'landscape');
+  video.removeAttribute('x5-video-player-type');
 }
 
 async function mountPlayer(url: string) {
@@ -918,8 +919,8 @@ async function mountPlayer(url: string) {
     subtitleOffset: false,
     hotkey: true,
     pip: !uiStore.isMobile,
-    fullscreen: !uiStore.isMobile,
-    fullscreenWeb: true,
+    fullscreen: true,
+    fullscreenWeb: !uiStore.isMobile,
     airplay: true,
     gesture: true,
     screenshot: false,
