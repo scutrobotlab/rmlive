@@ -85,6 +85,11 @@ async function runSchedulePoll(): Promise<void> {
 
 self.addEventListener('message', (event: ExtendableMessageEvent) => {
   const data = event.data as { type?: string } | undefined;
+  if (data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+    return;
+  }
+
   if (data?.type === 'POLL_SCHEDULE' || data?.type === 'PREFS_UPDATED') {
     event.waitUntil(runSchedulePoll());
   }
