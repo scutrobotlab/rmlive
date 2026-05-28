@@ -5,7 +5,7 @@ import { storeToRefs } from 'pinia';
 import { Fieldset } from 'primevue';
 import Splitter from 'primevue/splitter';
 import SplitterPanel from 'primevue/splitterpanel';
-import { computed, defineAsyncComponent } from 'vue';
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import LivePlayer from '../live/LivePlayer.vue';
 import type { DanmuMessage } from '../../types/api';
 
@@ -39,6 +39,45 @@ const MatchReactionStrip = defineAsyncComponent(() => import('../panels/MatchRea
 
 const hasCurrentMatch = computed(() => Boolean(runningMatchForSelectedZone.value));
 const showMatchDependentPlaceholder = computed(() => streamLoading.value || !liveGameInfo.value);
+const liveColumnRef = ref<HTMLElement | null>(null);
+const desktopSplitterStyle = ref<Record<string, string>>({});
+
+let liveColumnResizeObserver: ResizeObserver | null = null;
+
+function updateDesktopSplitterHeight() {
+  if (isMobile.value || !danmuEnabledAtLoad || !liveColumnRef.value) {
+    desktopSplitterStyle.value = {};
+    return;
+  }
+
+  const height = liveColumnRef.value.getBoundingClientRect().height;
+  if (height > 0) {
+    desktopSplitterStyle.value = {
+      '--live-stage-height': `${Math.ceil(height)}px`,
+    };
+  }
+}
+
+onMounted(() => {
+  liveColumnResizeObserver = new ResizeObserver(() => updateDesktopSplitterHeight());
+  if (liveColumnRef.value) {
+    liveColumnResizeObserver.observe(liveColumnRef.value);
+  }
+
+  void nextTick(updateDesktopSplitterHeight);
+});
+
+onBeforeUnmount(() => {
+  liveColumnResizeObserver?.disconnect();
+  liveColumnResizeObserver = null;
+});
+
+watch(
+  [isMobile, pkEnabled, reactionEnabled, hasCurrentMatch, showMatchDependentPlaceholder],
+  () => {
+    void nextTick(updateDesktopSplitterHeight);
+  },
+);
 
 function onRetry() {
   void dataStore.retryLiveStream();
@@ -63,9 +102,14 @@ function onDanmuReset() {
 
 <template>
   <section class="main-grid">
-    <Splitter v-if="!isMobile && danmuEnabledAtLoad" layout="horizontal" :style="{ height: '100%' }">
-      <SplitterPanel :size="75" :minSize="50">
-        <div class="live-column">
+    <Splitter
+      v-if="!isMobile && danmuEnabledAtLoad"
+      layout="horizontal"
+      class="desktop-live-splitter"
+      :style="desktopSplitterStyle"
+    >
+      <SplitterPanel :size="75" :minSize="50" class="live-panel-wrap">
+        <div ref="liveColumnRef" class="live-column">
           <MatchFirepowerBar v-if="pkEnabled && hasCurrentMatch" />
           <div v-else-if="pkEnabled && showMatchDependentPlaceholder" class="firepower-slot" aria-hidden="true" />
           <LivePlayer
@@ -133,9 +177,19 @@ function onDanmuReset() {
   gap: 1rem;
   grid-template-columns: 1fr;
   min-width: 0;
+  min-height: 0;
 }
 
 .live-column {
+  min-width: 0;
+}
+
+.desktop-live-splitter {
+  height: var(--live-stage-height, auto);
+  align-items: stretch;
+}
+
+.live-panel-wrap {
   min-width: 0;
 }
 
@@ -159,6 +213,9 @@ function onDanmuReset() {
 .danmu-panel-wrap {
   display: flex;
   flex-direction: column;
+  align-self: stretch;
+  min-height: 0;
+  min-width: 0;
   overflow: hidden;
 }
 

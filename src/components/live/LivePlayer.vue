@@ -92,6 +92,8 @@ let lastUserGestureAt = 0;
 let userPausedPlayback = false;
 let retryRemountCount = 0;
 
+const SOFT_RECOVERY_MIN_INTERVAL_MS = 5000;
+
 const danmuFilterStore = useDanmuFilterStore();
 const matchEngagementStore = useMatchEngagementStore();
 const userInfoStore = useUserInfoStore();
@@ -257,35 +259,6 @@ function isDocumentVisible() {
   return typeof document === 'undefined' || document.visibilityState !== 'hidden';
 }
 
-function getLiveEdgeTime(video: HTMLVideoElement) {
-  const hlsLiveSyncPosition = liveHls?.liveSyncPosition;
-  if (typeof hlsLiveSyncPosition === 'number' && Number.isFinite(hlsLiveSyncPosition)) {
-    return hlsLiveSyncPosition;
-  }
-
-  const buffered = video.buffered;
-  if (!buffered.length) {
-    return null;
-  }
-
-  return buffered.end(buffered.length - 1);
-}
-
-function seekNearLiveEdge(video: HTMLVideoElement) {
-  const liveEdge = getLiveEdgeTime(video);
-  if (liveEdge === null) {
-    return false;
-  }
-
-  const targetTime = Math.max(0, liveEdge - 1.5);
-  if (Number.isFinite(targetTime) && Math.abs(video.currentTime - targetTime) > 0.8) {
-    video.currentTime = targetTime;
-    return true;
-  }
-
-  return false;
-}
-
 function tryPlayVideo(video: HTMLVideoElement) {
   const playResult = video.play();
   if (playResult && typeof playResult.catch === 'function') {
@@ -301,7 +274,7 @@ function triggerStreamRecovery(video: HTMLVideoElement, forceRemount = false) {
   }
 
   const now = Date.now();
-  if (!forceRemount && now - lastRecoveryAt < 2500) {
+  if (!forceRemount && now - lastRecoveryAt < SOFT_RECOVERY_MIN_INTERVAL_MS) {
     return;
   }
   lastRecoveryAt = now;
@@ -309,7 +282,6 @@ function triggerStreamRecovery(video: HTMLVideoElement, forceRemount = false) {
   if (!forceRemount) {
     try {
       liveHls?.startLoad?.();
-      seekNearLiveEdge(video);
       tryPlayVideo(video);
       return;
     } catch (error) {
@@ -382,14 +354,14 @@ function checkPlayerHealth() {
   }
 
   const readyToPlay = video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA;
-  const likelyStalled = !video.paused && !video.ended && !progressed && now - lastProgressCheckAt > 6000;
+  const likelyStalled = !video.paused && !video.ended && !progressed && now - lastProgressCheckAt > 8000;
   const passivePause = video.paused && !video.ended && !userPausedPlayback && now - lastUserGestureAt > 1500;
 
   if (passivePause || likelyStalled || !readyToPlay) {
     if (!stalledSince) {
       stalledSince = now;
     }
-    triggerStreamRecovery(video, now - stalledSince > 14000);
+    triggerStreamRecovery(video, now - stalledSince > 20000);
   }
 }
 
@@ -943,32 +915,32 @@ async function mountPlayer(url: string) {
           const hlsBufferStalledDetail = (HlsCtor as any).ErrorDetails?.BUFFER_STALLED_ERROR ?? 'bufferStalledError';
 
           const hls = new HlsCtor({
-            // Favor stability over ultra-low latency to avoid frequent stalls on mobile networks.
+            // Favor continuity over low latency, while leaving timeline control to HLS/video.
             lowLatencyMode: false,
             liveDurationInfinity: true,
             liveSyncMode: 'buffered',
-            backBufferLength: 20,
-            maxBufferLength: 20,
-            maxMaxBufferLength: 40,
-            maxBufferHole: 0.8,
-            liveSyncDurationCount: 3,
-            liveMaxLatencyDurationCount: 8,
-            maxLiveSyncPlaybackRate: 1.2,
+            backBufferLength: 30,
+            maxBufferLength: 30,
+            maxMaxBufferLength: 60,
+            maxBufferHole: 1,
+            liveSyncDurationCount: 2,
+            liveMaxLatencyDurationCount: 3,
+            maxLiveSyncPlaybackRate: 1,
             liveSyncOnStallIncrease: 1,
-            nudgeOffset: 0.12,
-            nudgeMaxRetry: 8,
+            nudgeOffset: 0.1,
+            nudgeMaxRetry: 6,
             enableWorker: true,
             startFragPrefetch: true,
             testBandwidth: false,
-            manifestLoadingMaxRetry: 4,
-            manifestLoadingRetryDelay: 500,
-            manifestLoadingMaxRetryTimeout: 4000,
-            levelLoadingMaxRetry: 5,
-            levelLoadingRetryDelay: 700,
-            levelLoadingMaxRetryTimeout: 6000,
-            fragLoadingMaxRetry: 6,
-            fragLoadingRetryDelay: 800,
-            fragLoadingMaxRetryTimeout: 10000,
+            manifestLoadingMaxRetry: 6,
+            manifestLoadingRetryDelay: 700,
+            manifestLoadingMaxRetryTimeout: 6000,
+            levelLoadingMaxRetry: 6,
+            levelLoadingRetryDelay: 1000,
+            levelLoadingMaxRetryTimeout: 8000,
+            fragLoadingMaxRetry: 8,
+            fragLoadingRetryDelay: 1000,
+            fragLoadingMaxRetryTimeout: 12000,
             startLevel: -1,
           });
 
