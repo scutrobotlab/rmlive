@@ -30,6 +30,7 @@ const danmuEnabledAtLoad = Boolean(uiStore.danmuEnabled);
 
 const emit = defineEmits<{
   danmu: [msg: DanmuMessage];
+  danmuList: [messages: DanmuMessage[]];
   danmuReset: [];
 }>();
 
@@ -95,6 +96,10 @@ function onDanmu(msg: DanmuMessage) {
   emit('danmu', msg);
 }
 
+function onDanmuList(messages: DanmuMessage[]) {
+  emit('danmuList', messages);
+}
+
 function onDanmuReset() {
   emit('danmuReset');
 }
@@ -125,6 +130,7 @@ function onDanmuReset() {
             @perspective-change="onPerspectiveChange"
             @quality-change="onQualityChange"
             @danmu="onDanmu"
+            @danmu-list="onDanmuList"
             @danmu-reset="onDanmuReset"
           />
           <MatchReactionStrip v-if="reactionEnabled && hasCurrentMatch" />
@@ -157,6 +163,7 @@ function onDanmuReset() {
         @perspective-change="onPerspectiveChange"
         @quality-change="onQualityChange"
         @danmu="onDanmu"
+        @danmu-list="onDanmuList"
         @danmu-reset="onDanmuReset"
       />
       <MatchReactionStrip v-if="reactionEnabled && hasCurrentMatch" class="mt-2" />

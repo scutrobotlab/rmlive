@@ -13,6 +13,7 @@ export class DanmuService implements IMatchEngagementGateway, IDanmuFilterGatewa
   private workerClient: ImWorkerClient;
   private currentRoomId: string | null = null;
   private unsubscribeDanmu: (() => void) | null = null;
+  private unsubscribeDanmuList: (() => void) | null = null;
   private unsubscribeEngagement: (() => void) | null = null;
   private unsubscribeEngagementSnapshot: (() => void) | null = null;
   private unsubscribeError: (() => void) | null = null;
@@ -31,6 +32,9 @@ export class DanmuService implements IMatchEngagementGateway, IDanmuFilterGatewa
 
     this.unsubscribeDanmu = this.workerClient.onDanmu((msg) => {
       this.handlers.onMessage?.(msg);
+    });
+    this.unsubscribeDanmuList = this.workerClient.onDanmuList((messages) => {
+      this.handlers.onDanmuList?.(messages);
     });
     this.unsubscribeEngagement = this.workerClient.onEngagement((msg) => {
       this.handlers.onEngagementMessage?.(msg);
@@ -126,6 +130,14 @@ export class DanmuService implements IMatchEngagementGateway, IDanmuFilterGatewa
     await this.workerClient.updateDanmuFilterRules(rules);
   }
 
+  async generateMockDanmu(count: number): Promise<boolean> {
+    return this.workerClient.generateMockDanmu(count);
+  }
+
+  getWorkerClient(): ImWorkerClient {
+    return this.workerClient;
+  }
+
   async disconnect(): Promise<void> {
     if (this.disconnecting) {
       return;
@@ -141,6 +153,8 @@ export class DanmuService implements IMatchEngagementGateway, IDanmuFilterGatewa
 
       this.unsubscribeDanmu?.();
       this.unsubscribeDanmu = null;
+      this.unsubscribeDanmuList?.();
+      this.unsubscribeDanmuList = null;
       this.unsubscribeEngagement?.();
       this.unsubscribeEngagement = null;
       this.unsubscribeEngagementSnapshot?.();

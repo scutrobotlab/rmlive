@@ -19,6 +19,7 @@ export class ImWorkerClient {
   private worker: Worker;
   private pending = new Map<string, PendingResolver>();
   private danmuListeners = new Set<(msg: DanmuMessage) => void>();
+  private danmuListListeners = new Set<(messages: DanmuMessage[]) => void>();
   private engagementListeners = new Set<(msg: EngagementInbound) => void>();
   private engagementSnapshotListeners = new Set<(payload: EngagementSnapshotEventPayload) => void>();
   private errorListeners = new Set<(error: unknown) => void>();
@@ -39,6 +40,13 @@ export class ImWorkerClient {
     this.danmuListeners.add(listener);
     return () => {
       this.danmuListeners.delete(listener);
+    };
+  }
+
+  onDanmuList(listener: (messages: DanmuMessage[]) => void): () => void {
+    this.danmuListListeners.add(listener);
+    return () => {
+      this.danmuListListeners.delete(listener);
     };
   }
 
@@ -109,6 +117,10 @@ export class ImWorkerClient {
     return this.request('send-reaction', { matchKey, reactionId }) as Promise<void>;
   }
 
+  generateMockDanmu(count: number): Promise<boolean> {
+    return this.request('generate-mock-danmu', { count }) as Promise<boolean>;
+  }
+
   async dispose(): Promise<void> {
     await this.request('dispose', {});
     for (const [id, pending] of this.pending) {
@@ -161,6 +173,13 @@ export class ImWorkerClient {
     if (event.type === 'danmu') {
       for (const listener of this.danmuListeners) {
         listener(event.payload);
+      }
+      return;
+    }
+
+    if (event.type === 'danmu-list') {
+      for (const listener of this.danmuListListeners) {
+        listener(event.payload.messages);
       }
       return;
     }

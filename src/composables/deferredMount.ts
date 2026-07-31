@@ -1,10 +1,15 @@
 export function scheduleDeferredMount(task: () => void, delayMs = 180): () => void {
-  const idleCallback = window.requestIdleCallback;
-  if (idleCallback) {
-    idleCallback(() => {
+  if (typeof window === 'undefined') {
+    return () => {};
+  }
+
+  if (typeof window.requestIdleCallback === 'function') {
+    const id = window.requestIdleCallback(() => {
       task();
     });
-    return () => {};
+    return () => {
+      window.cancelIdleCallback(id);
+    };
   }
 
   const timer = window.setTimeout(() => task(), delayMs);

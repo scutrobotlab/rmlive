@@ -11,6 +11,7 @@ import type {
 } from '../types/api';
 import type { GroupSection, TeamGroupMeta } from '../utils/groupView';
 import type { MatchView } from '../utils/matchView';
+import { trackEvent, trackPageView } from '../lib/tracking';
 import { logInfo, logWarn, markPerformance, measurePerformance } from '../utils/observability';
 import type { PlayerPerspectiveOption, PlayerQualityOption } from '../utils/rmStreamView';
 import { normalizeZoneId, type ZoneOptionItem, type ZoneUiState } from '../utils/zoneView';
@@ -63,6 +64,88 @@ export const useRmDataStore = defineStore('rm-data', () => {
   let visibilityListenerAttached = false;
   let workerRestarting = false;
   let latestSnapshotVersion = 0;
+
+  const HEARTBEAT_INTERVAL_MS = 10_000;
+  const HEARTBEAT_TIMEOUT_MS = 5_000;
+  const MAX_RESTART_ATTEMPTS = 3;
+
+  let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  let heartbeatPending = false;
+  let restartAttempts = 0;
+
+  function startHeartbeat() {
+    stopHeartbeat();
+    heartbeatTimer = setInterval(() => {
+      if (isStopping || !worker) {
+        return;
+      }
+
+      if (heartbeatPending) {
+        logWarn('rm-data-worker', 'heartbeat timeout, restarting...');
+        restartAttempts++;
+        if (restartAttempts > MAX_RESTART_ATTEMPTS) {
+          logWarn('rm-data-worker', 'max restart attempts reached');
+          stopHeartbeat();
+          return;
+        }
+        restartWorkerInternal();
+        return;
+      }
+
+      heartbeatPending = true;
+      try {
+        worker.postMessage({ type: 'HEARTBEAT' });
+      } catch {
+        heartbeatPending = false;
+        restartWorkerInternal();
+      }
+
+      setTimeout(() => {
+        if (heartbeatPending && !isStopping) {
+          logWarn('rm-data-worker', 'heartbeat response timeout');
+          restartAttempts++;
+          if (restartAttempts > MAX_RESTART_ATTEMPTS) {
+            logWarn('rm-data-worker', 'max restart attempts reached');
+            stopHeartbeat();
+            return;
+          }
+          restartWorkerInternal();
+        }
+      }, HEARTBEAT_TIMEOUT_MS);
+    }, HEARTBEAT_INTERVAL_MS);
+  }
+
+  function stopHeartbeat() {
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
+    }
+    heartbeatPending = false;
+  }
+
+  function restartWorkerInternal() {
+    if (workerRestarting || isStopping) {
+      return;
+    }
+
+    workerRestarting = true;
+    streamLoading.value = true;
+    streamErrorMessage.value = '';
+
+    try {
+      worker?.terminate();
+    } catch {
+      // ignore terminate races
+    }
+
+    worker = null;
+
+    const restartedWorker = spawnWorker();
+    restartedWorker.postMessage({ type: 'INIT', payload: buildInitPayload() });
+    setVisibilityInWorker();
+    workerRestarting = false;
+    heartbeatPending = false;
+  }
 
   function applySnapshot(snapshot: RmDataSnapshot) {
     liveGameInfo.value = snapshot.liveGameInfo;
@@ -193,12 +276,14 @@ export const useRmDataStore = defineStore('rm-data', () => {
   }
 
   function buildInitPayload(): RmDataInitPayload {
+    const params = new URLSearchParams(window.location.search);
     return {
       historySelectedZoneId: historySelectedZoneId.value,
       selectedZoneId: selectedZoneId.value,
       selectedQualityRes: selectedQualityRes.value,
       selectedPerspectiveKey: selectedPerspectiveKey.value,
       hasManualZoneSelection,
+      ignoreLiveState: params.has('ignorelivestate'),
     };
   }
 
@@ -261,6 +346,19 @@ export const useRmDataStore = defineStore('rm-data', () => {
 
       if (data.type === 'STREAM_ERROR') {
         streamErrorMessage.value = data.payload.message;
+        trackEvent('player.stream_error', { zoneId: selectedZoneId.value });
+        return;
+      }
+
+      if (data.type === 'HEARTBEAT_ACK') {
+        heartbeatPending = false;
+        restartAttempts = 0;
+        return;
+      }
+
+      if (data.type === 'WORKER_ERROR') {
+        const { message: errMsg, stack } = data.error ?? {};
+        logWarn('rm-data-worker', 'worker reported error', { message: errMsg, stack });
         return;
       }
 
@@ -271,7 +369,7 @@ export const useRmDataStore = defineStore('rm-data', () => {
           logWarn(data.payload.scope, data.payload.message, data.payload.meta);
         }
       }
-    };
+    };    
 
     nextWorker.onerror = (event) => {
       if (isStopping) {
@@ -313,15 +411,18 @@ export const useRmDataStore = defineStore('rm-data', () => {
   function startWorker() {
     isStopping = false;
     latestSnapshotVersion = 0;
+    restartAttempts = 0;
     const currentWorker = spawnWorker();
     markPerformance('rm-data-worker-init-dispatched');
     currentWorker.postMessage({ type: 'INIT', payload: buildInitPayload() });
     attachVisibilityListener();
     setVisibilityInWorker();
+    startHeartbeat();
   }
 
   function stopWorker() {
     isStopping = true;
+    stopHeartbeat();
     detachVisibilityListener();
 
     if (!worker) {
@@ -351,6 +452,8 @@ export const useRmDataStore = defineStore('rm-data', () => {
     selectedZoneId.value = normalized;
     historySelectedZoneId.value = normalized;
     postToWorker({ type: 'USER_SELECT_ZONE', payload: { zoneId: normalized } });
+    trackEvent('nav.zone_change', { zoneId: normalized });
+    trackPageView();
   }
 
   function selectQuality(qualityRes: string | null) {
@@ -385,6 +488,7 @@ export const useRmDataStore = defineStore('rm-data', () => {
     streamLoading.value = true;
     streamErrorMessage.value = '';
     postToWorker({ type: 'RETRY_STREAM' });
+    trackEvent('player.stream_retry', { zoneId: selectedZoneId.value });
   }
 
   return {

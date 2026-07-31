@@ -6,9 +6,11 @@ import TopToolbar from './components/header/TopToolbar.vue';
 import LiveStage from './components/layout/LiveStage.vue';
 import ScheduleArea from './components/layout/ScheduleArea.vue';
 import CurrentMatchPanel from './components/panels/CurrentMatchPanel.vue';
+import ErrorBoundary from './components/common/ErrorBoundary.vue';
 import { bindDanmuRoomReset } from './composables/danmuLifecycle';
 import { requestNotificationPermissionOnLaunch } from './composables/notificationPermissionOnLaunch';
 import { useScheduleNotifyPolling } from './composables/scheduleNotifyClient';
+import { trackEvent } from './lib/tracking';
 import { useDanmuStore } from './stores/danmu';
 import { useRmDataStore } from './stores/rmData';
 import { useScheduleNotifyStore } from './stores/scheduleNotify';
@@ -39,6 +41,10 @@ function onDanmuReceived(msg: DanmuMessage) {
   danmuStore.addMessage(msg);
 }
 
+function onDanmuListReceived(messages: DanmuMessage[]) {
+  danmuStore.setMessages(messages);
+}
+
 function onDanmuReset() {
   // Keep cached danmu visible during reconnect; fresh history/realtime messages will update it.
 }
@@ -60,6 +66,7 @@ function onOpenTeamData(payload: string | TeamSelectPayload) {
   if (!teamName || teamName === '-') {
     return;
   }
+  trackEvent('content.team_data', { teamName });
 
   dataDialogTeam.value = teamName;
   dataDialogCollege.value = typeof payload === 'string' ? null : (payload.collegeName ?? null);
@@ -89,11 +96,15 @@ onBeforeUnmount(() => {
     <Toast position="top-right" />
     <TopToolbar />
 
-    <section v-if="showMatchHero" class="match-hero" :class="{ reserving: !runningMatchForSelectedZone }">
-      <CurrentMatchPanel :key="dataStore.selectedZoneId ?? 'zone-empty'" @team-select="onOpenTeamData" />
-    </section>
+    <ErrorBoundary>
+      <section v-if="showMatchHero" class="match-hero" :class="{ reserving: !runningMatchForSelectedZone }">
+        <CurrentMatchPanel :key="dataStore.selectedZoneId ?? 'zone-empty'" @team-select="onOpenTeamData" />
+      </section>
+    </ErrorBoundary>
 
-    <LiveStage @danmu="onDanmuReceived" @danmu-reset="onDanmuReset" />
+    <ErrorBoundary>
+      <LiveStage @danmu="onDanmuReceived" @danmu-list="onDanmuListReceived" @danmu-reset="onDanmuReset" />
+    </ErrorBoundary>
 
     <ScheduleArea :enabled="enableSecondaryPanels" @team-select="onOpenTeamData" />
 

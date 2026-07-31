@@ -174,6 +174,8 @@ onBeforeUnmount(() => {
         :src="oak"
         :alt="supportLabel"
         class="support-icon h-5 w-5 object-contain sm:h-6 sm:w-6"
+        loading="lazy"
+        decoding="async"
         draggable="false"
         @dragstart.prevent
         @contextmenu.prevent

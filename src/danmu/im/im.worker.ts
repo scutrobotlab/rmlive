@@ -56,6 +56,7 @@ const HISTORY_WINDOW_MS = 60 * 60 * 1000;
 const HISTORY_PAGE_LIMIT = 100;
 const SNAPSHOT_FLUSH_INTERVAL_MS = 50;
 const DANMU_EMIT_DEDUP_CAP = 2000;
+const MAX_DANMU_BUFFER = 180;
 
 let runtime: ImRuntime | null = null;
 const workerScope = self as unknown as DedicatedWorkerGlobalScope;
@@ -72,6 +73,7 @@ class ImRuntime {
   private engagementStates = new Map<string, EngagementState>();
   private activeMatchKey: string | null = null;
   private danmuFilterRules: DanmuFilterRules = normalizeDanmuFilterRules(undefined);
+  private danmuBuffer: DanmuMessage[] = [];
   private emittedDanmuMessageIds = new Set<string>();
   private snapshotFlushTimer: ReturnType<typeof setInterval>;
 
@@ -157,6 +159,7 @@ class ImRuntime {
     this.roomBindings.delete(roomId);
 
     this.detachMessageHandler(binding);
+    this.clearDanmuBuffer();
     try {
       if (typeof binding.conversation.leave === 'function') {
         await binding.conversation.leave();
@@ -210,6 +213,60 @@ class ImRuntime {
 
   async updateDanmuFilter(rules: DanmuFilterRules): Promise<void> {
     this.danmuFilterRules = normalizeDanmuFilterRules(rules);
+    this.emitFilteredDanmuList();
+  }
+
+  generateMockDanmu(count: number): void {
+    const now = Date.now();
+    const randomText = (): string => {
+      const templates = [
+        '666666',
+        '太强了！',
+        '牛啊牛啊',
+        '加油加油💪',
+        '这波操作绝了',
+        '笑死我了哈哈',
+        '来了来了',
+        '前排围观',
+        '冲冲冲',
+        '起飞起飞',
+        '哈哈哈哈',
+        '好活当赏',
+        '大师球！',
+        '这也太帅了吧',
+        '真不错',
+        '确实',
+        '芜湖~',
+        '有被秀到',
+        '爱了爱了',
+        'nb',
+      ];
+      return templates[Math.floor(Math.random() * templates.length)];
+    };
+
+    const randomColor = (): string | undefined => {
+      if (Math.random() < 0.7) return undefined;
+      const colors = ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#ff922b', '#cc5de8'];
+      return colors[Math.floor(Math.random() * colors.length)];
+    };
+
+    for (let i = 0; i < count; i++) {
+      const danmu: DanmuMessage = {
+        id: `mock-${now}-${i}`,
+        timestamp: now - (count - i),
+        text: randomText(),
+        username: `用户${Math.floor(Math.random() * 10000)}`,
+        nickname: '',
+        schoolName: '',
+        badge: '',
+        source: 'realtime',
+        mode: Math.random() < 0.1 ? 1 : 0,
+        color: randomColor(),
+      };
+      this.addToDanmuBuffer(danmu);
+    }
+
+    this.emitFilteredDanmuList();
   }
 
   async sendDanmu(roomId: string, text: string, attrs: DanmuAttributes): Promise<void> {
@@ -762,6 +819,37 @@ class ImRuntime {
     }
 
     this.emitEvent({ type: 'danmu', payload: danmu });
+    this.addToDanmuBuffer(danmu);
+    this.emitFilteredDanmuList();
+  }
+
+  private addToDanmuBuffer(danmu: DanmuMessage) {
+    const existingIndex = this.danmuBuffer.findIndex((item) => item.id === danmu.id);
+    if (existingIndex >= 0) {
+      this.danmuBuffer.splice(existingIndex, 1, danmu);
+    } else {
+      this.danmuBuffer.unshift(danmu);
+    }
+
+    this.danmuBuffer.sort((a, b) => {
+      if (b.timestamp !== a.timestamp) {
+        return b.timestamp - a.timestamp;
+      }
+      return String(b.id).localeCompare(String(a.id));
+    });
+
+    if (this.danmuBuffer.length > MAX_DANMU_BUFFER) {
+      this.danmuBuffer.length = MAX_DANMU_BUFFER;
+    }
+  }
+
+  private emitFilteredDanmuList() {
+    const filtered = this.danmuBuffer.filter((msg) => !isDanmuMessageBlocked(msg, this.danmuFilterRules));
+    this.emitEvent({ type: 'danmu-list', payload: { messages: filtered } });
+  }
+
+  private clearDanmuBuffer() {
+    this.danmuBuffer = [];
   }
 
   private normalizeStyle(attrs: Record<string, unknown>): Pick<DanmuMessage, 'mode' | 'color'> {
@@ -908,6 +996,11 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       }
       case 'send-reaction': {
         await assertRuntime().sendReaction(request.payload.matchKey, request.payload.reactionId);
+        payload = true;
+        break;
+      }
+      case 'generate-mock-danmu': {
+        assertRuntime().generateMockDanmu(request.payload.count);
         payload = true;
         break;
       }

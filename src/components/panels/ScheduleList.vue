@@ -45,6 +45,8 @@ const renderedRows = computed(() => {
 
 const hasMoreRows = computed(() => props.incremental && visibleCount.value < props.rows.length);
 
+const rowsIdentity = computed(() => JSON.stringify(props.rows.map((row) => row.id)));
+
 const dateGroups = computed(() => groupScheduleRowsByDate(renderedRows.value, props.dateOrder));
 
 function normalizeChunkSize(): number {
@@ -138,7 +140,7 @@ function scheduleViewportCheck() {
 }
 
 watch(
-  () => props.rows,
+  rowsIdentity,
   () => {
     resetVisibleCount();
     setupObserver();
@@ -157,9 +159,24 @@ watch(
 );
 
 watch(hasMoreRows, () => {
-  setupObserver();
-  scheduleViewportCheck();
+  void nextTick(() => {
+    setupObserver();
+    scheduleViewportCheck();
+  });
 });
+
+watch(
+  loadSentinel,
+  (el) => {
+    if (el) {
+      setupObserver();
+      scheduleViewportCheck();
+    } else {
+      stopObserver();
+    }
+  },
+  { flush: 'post' },
+);
 
 onMounted(() => {
   setupObserver();
@@ -179,7 +196,7 @@ function onTeamSelect(payload: TeamSelectPayload) {
   <div v-if="!rows.length" class="empty-state">暂无数据</div>
 
   <div v-else class="schedule-list">
-    <section v-for="group in dateGroups" :key="group.date" class="date-group">
+    <section v-for="group in dateGroups" :key="group.date" class="date-group schedule-list-group">
       <div class="date-sticky">
         <Divider align="left" type="solid" class="date-divider">
           <span class="divider-date-row">

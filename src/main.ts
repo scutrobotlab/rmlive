@@ -9,6 +9,8 @@ import Tooltip from 'primevue/tooltip';
 import { createApp } from 'vue';
 
 import App from './App.vue';
+import { initTracking } from './lib/tracking';
+import { pruneLargeLocalStorageEntries, checkStorageQuota } from './lib/storageCleanup';
 import { markPerformance } from './utils/observability';
 
 function isFullscreenLikeActive() {
@@ -25,6 +27,20 @@ function isFullscreenLikeActive() {
     doc.msFullscreenElement ||
     document.querySelector('.art-fullscreen-web'),
   );
+}
+
+let didForceReload = false;
+const FORCE_RELOAD_COOLDOWN = 30_000;
+
+function prepareForServiceWorkerReload() {
+  if (isFullscreenLikeActive()) {
+    void document.exitFullscreen();
+  }
+
+  didForceReload = true;
+  setTimeout(() => {
+    didForceReload = false;
+  }, FORCE_RELOAD_COOLDOWN);
 }
 
 function runWhenFullscreenIsIdle(task: () => void) {
@@ -67,6 +83,8 @@ app.use(pinia);
 
 import './styles/danmu-tooltip.css';
 
+initTracking();
+
 app.use(PrimeVue, {
   theme: {
     preset: Aura,
@@ -82,6 +100,18 @@ app.directive('tooltip', Tooltip);
 markPerformance('rm-app-mount-start');
 app.mount('#app');
 markPerformance('rm-app-mounted');
+
+if (typeof window.requestIdleCallback === 'function') {
+  window.requestIdleCallback(() => {
+    pruneLargeLocalStorageEntries();
+    void checkStorageQuota();
+  }, { timeout: 10000 });
+} else {
+  window.setTimeout(() => {
+    pruneLargeLocalStorageEntries();
+    void checkStorageQuota();
+  }, 10000);
+}
 
 function registerServiceWorkerWhenIdle() {
   void import('virtual:pwa-register').then(({ registerSW }) => {
@@ -107,7 +137,12 @@ function registerServiceWorkerWhenIdle() {
     const updateServiceWorker = registerSW({
       immediate: true,
       onNeedRefresh() {
+        if (didForceReload) {
+          console.debug('[rm-live][pwa] skipping refresh: in cooldown period');
+          return;
+        }
         runWhenFullscreenIsIdle(() => {
+          prepareForServiceWorkerReload();
           void updateServiceWorker(true);
         });
       },
@@ -117,6 +152,13 @@ function registerServiceWorkerWhenIdle() {
         window.setInterval(checkForServiceWorkerUpdate, updateCheckIntervalMs, registration);
         window.addEventListener('focus', () => checkForServiceWorkerUpdate(registration));
         document.addEventListener('visibilitychange', () => checkForServiceWorkerUpdate(registration));
+
+        navigator.serviceWorker?.addEventListener('message', (event) => {
+          if (event.data?.type === 'SW_UPDATE_AVAILABLE') {
+            console.debug('[rm-live][pwa] SW detected version change, triggering update check');
+            checkForServiceWorkerUpdate(registration);
+          }
+        });
       },
       onRegisterError(error) {
         console.warn('[rm-live][pwa] service worker registration failed', error);

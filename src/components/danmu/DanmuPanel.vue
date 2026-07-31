@@ -82,6 +82,7 @@ const viewerCountLabel = computed(() => {
 
 .list-row {
   padding-bottom: 0.28rem;
+  contain: layout style paint;
 }
 
 .list-empty {

@@ -59,6 +59,7 @@ interface WorkerState {
   selectedPerspectiveKey: string | null;
   historySelectedZoneId: string | null;
   hasManualZoneSelection: boolean;
+  ignoreLiveState: boolean;
   streamLoading: boolean;
   streamErrorMessage: string;
   visible: boolean;
@@ -83,6 +84,7 @@ const state: WorkerState = {
   selectedPerspectiveKey: null,
   historySelectedZoneId: null,
   hasManualZoneSelection: false,
+  ignoreLiveState: false,
   streamLoading: true,
   streamErrorMessage: '',
   visible: true,
@@ -91,12 +93,14 @@ const state: WorkerState = {
 let stopped = false;
 let bootstrapToken = 0;
 let streamProbeToken = 0;
+let pollingGeneration = 0;
 let snapshotTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingBootstrapSnapshot = false;
 let pendingPatchKeys = new Set<keyof RmDataSnapshot>();
 let snapshotVersion = 0;
 let lastPostedSnapshot: RmDataSnapshot | null = null;
 let hasManualQualitySelection = false;
+let ignoreLiveState = false;
 
 const SNAPSHOT_KEYS: Array<keyof RmDataSnapshot> = [
   'liveGameInfo',
@@ -304,8 +308,9 @@ function buildSnapshot(): RmDataSnapshot {
     state.selectedQualityRes,
     selectedPerspective?.key ?? undefined,
   );
+  const liveStateOk = ignoreLiveState || selectedZone?.liveState === 1;
   const canPlaySelectedZone = Boolean(
-    selectedZone && selectedZone.liveState === 1 && resolvedStreamUrl && !state.streamErrorMessage.trim(),
+    selectedZone && liveStateOk && resolvedStreamUrl && !state.streamErrorMessage.trim(),
   );
   const effectiveStreamUrl = canPlaySelectedZone ? resolvedStreamUrl : null;
   const effectiveStreamErrorMessage = resolveEffectiveStreamErrorMessage(
@@ -465,6 +470,7 @@ function createPollingLoop(
   let timer: ReturnType<typeof setTimeout> | null = null;
   let running = false;
   let enabled = true;
+  const generation = pollingGeneration;
 
   function clearTimer() {
     if (timer) {
@@ -474,7 +480,7 @@ function createPollingLoop(
   }
 
   async function tick() {
-    if (stopped || !enabled || running) {
+    if (generation !== pollingGeneration || stopped || !enabled || running) {
       return;
     }
 
@@ -490,7 +496,7 @@ function createPollingLoop(
       postLog('warn', label, 'polling runner failed', { error: toErrorSummary(error) });
     } finally {
       running = false;
-      if (!stopped && enabled) {
+      if (generation === pollingGeneration && !stopped && enabled) {
         timer = setTimeout(tick, intervalMs);
       }
     }
@@ -543,8 +549,27 @@ function setStreamError(message: string) {
   self.postMessage({ type: 'STREAM_ERROR', payload: { message } });
 }
 
+interface StreamProbeCacheEntry {
+  reachable: boolean;
+  timestamp: number;
+}
+
+const streamProbeCache = new Map<string, StreamProbeCacheEntry>();
+const PROBE_CACHE_TTL = 30 * 1000;
+const pendingProbes = new Map<string, Promise<boolean>>();
+
+function getCachedProbeResult(streamUrl: string): boolean | null {
+  const cached = streamProbeCache.get(streamUrl);
+  if (!cached) return null;
+  if (Date.now() - cached.timestamp > PROBE_CACHE_TTL) {
+    streamProbeCache.delete(streamUrl);
+    return null;
+  }
+  return cached.reachable;
+}
+
 async function isStreamUrlReachable(url: string): Promise<boolean> {
-  const timeoutMs = 6000;
+  const timeoutMs = 4000;
 
   async function run(method: 'HEAD' | 'GET'): Promise<Response> {
     const controller = new AbortController();
@@ -580,6 +605,23 @@ async function isStreamUrlReachable(url: string): Promise<boolean> {
   }
 }
 
+async function isStreamUrlReachableWithCache(url: string): Promise<boolean> {
+  const cached = getCachedProbeResult(url);
+  if (cached !== null) return cached;
+
+  const existing = pendingProbes.get(url);
+  if (existing) return existing;
+
+  const promise = isStreamUrlReachable(url).finally(() => {
+    pendingProbes.delete(url);
+  });
+  pendingProbes.set(url, promise);
+
+  const result = await promise;
+  streamProbeCache.set(url, { reachable: result, timestamp: Date.now() });
+  return result;
+}
+
 async function probeSelectedStreamAvailability(options: { showLoading: boolean }) {
   const token = ++streamProbeToken;
   const liveZones = getLiveZoneOptions();
@@ -599,7 +641,7 @@ async function probeSelectedStreamAvailability(options: { showLoading: boolean }
     scheduleSnapshot('PATCH_STATE', STREAM_STATUS_KEYS);
   }
 
-  if (selectedZone && selectedZone.liveState !== 1) {
+  if (!ignoreLiveState && selectedZone && selectedZone.liveState !== 1) {
     if (token !== streamProbeToken) {
       return;
     }
@@ -625,7 +667,7 @@ async function probeSelectedStreamAvailability(options: { showLoading: boolean }
     return;
   }
 
-  const reachable = await isStreamUrlReachable(streamUrl);
+  const reachable = await isStreamUrlReachableWithCache(streamUrl);
   if (token !== streamProbeToken) {
     return;
   }
@@ -830,6 +872,7 @@ function startPollingLoops() {
 
 function handleInit(payload: RmDataInitPayload) {
   stopped = false;
+  pollingGeneration++;
   state.liveGameInfo = null;
   state.currentAndNextMatches = null;
   state.groupsOrder = null;
@@ -841,6 +884,7 @@ function handleInit(payload: RmDataInitPayload) {
   state.selectedQualityRes = payload.selectedQualityRes;
   state.selectedPerspectiveKey = payload.selectedPerspectiveKey;
   state.hasManualZoneSelection = payload.hasManualZoneSelection;
+  ignoreLiveState = payload.ignoreLiveState;
   hasManualQualitySelection = false;
   state.streamLoading = true;
   state.streamErrorMessage = '';
@@ -858,9 +902,46 @@ function handleInit(payload: RmDataInitPayload) {
   });
 }
 
+self.addEventListener('unhandledrejection', (event) => {
+  console.error('[RmDataWorker] Unhandled rejection:', event.reason);
+  try {
+    self.postMessage({
+      type: 'WORKER_ERROR',
+      error: {
+        message: String(event.reason?.message ?? event.reason),
+        stack: typeof event.reason?.stack === 'string' ? event.reason.stack : '',
+      },
+    });
+  } catch {
+  }
+  event.preventDefault();
+});
+
+self.addEventListener('error', (event) => {
+  console.error('[RmDataWorker] Global error:', event.message, event.filename, event.lineno);
+  try {
+    self.postMessage({
+      type: 'WORKER_ERROR',
+      error: {
+        message: event.message || 'Unknown worker error',
+        stack: event.error?.stack || '',
+      },
+    });
+  } catch {
+  }
+});
+
 self.addEventListener('message', (event: MessageEvent<RmDataWorkerIncomingMessage>) => {
   const data = event.data;
   if (!data || typeof data !== 'object') {
+    return;
+  }
+
+  if (data.type === 'HEARTBEAT') {
+    try {
+      self.postMessage({ type: 'HEARTBEAT_ACK', timestamp: Date.now() });
+    } catch {
+    }
     return;
   }
 

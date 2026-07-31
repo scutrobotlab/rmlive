@@ -47,6 +47,14 @@ function ensurePreconnect(url: string) {
   }
 }
 
+function removePreconnectLinks() {
+  try {
+    document.head.querySelectorAll('link[data-preconnect]').forEach((node) => node.remove());
+  } catch {
+    // ignore: head may be unavailable during teardown
+  }
+}
+
 function destroyPlayer() {
   if (!player) {
     return;
@@ -123,6 +131,7 @@ function onDialogShow() {
 
 onBeforeUnmount(() => {
   destroyPlayer();
+  removePreconnectLinks();
 });
 </script>
 
