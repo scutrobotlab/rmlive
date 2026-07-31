@@ -24,7 +24,7 @@ function onTeamSelect(payload: TeamSelectPayload) {
 </script>
 
 <template>
-  <section id="rm-schedule-panel" class="lower-grid">
+  <section v-if="enabled" id="rm-schedule-panel" class="lower-grid">
     <div class="schedule-cell">
       <SchedulePanel
         :selected-zone-id="selectedZoneId"

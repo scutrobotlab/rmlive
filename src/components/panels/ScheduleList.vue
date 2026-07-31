@@ -45,6 +45,8 @@ const renderedRows = computed(() => {
 
 const hasMoreRows = computed(() => props.incremental && visibleCount.value < props.rows.length);
 
+const rowsIdentity = computed(() => JSON.stringify(props.rows.map((row) => row.id)));
+
 const dateGroups = computed(() => groupScheduleRowsByDate(renderedRows.value, props.dateOrder));
 
 function normalizeChunkSize(): number {
@@ -138,7 +140,7 @@ function scheduleViewportCheck() {
 }
 
 watch(
-  () => props.rows,
+  rowsIdentity,
   () => {
     resetVisibleCount();
     setupObserver();
@@ -157,9 +159,24 @@ watch(
 );
 
 watch(hasMoreRows, () => {
-  setupObserver();
-  scheduleViewportCheck();
+  void nextTick(() => {
+    setupObserver();
+    scheduleViewportCheck();
+  });
 });
+
+watch(
+  loadSentinel,
+  (el) => {
+    if (el) {
+      setupObserver();
+      scheduleViewportCheck();
+    } else {
+      stopObserver();
+    }
+  },
+  { flush: 'post' },
+);
 
 onMounted(() => {
   setupObserver();
