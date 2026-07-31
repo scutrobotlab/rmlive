@@ -126,6 +126,8 @@ function chipContentClass(count: number) {
         <img
           :src="p.url"
           :alt="p.id"
+          loading="lazy"
+          decoding="async"
           class="h-5 w-5 max-w-none shrink-0 object-contain sm:h-5 sm:w-5 md:h-6 md:w-6 lg:h-7 lg:w-7"
         />
         <span v-if="p.count > 0" class="text-xs leading-none sm:text-xs md:text-sm lg:text-base">{{ p.count }}</span>

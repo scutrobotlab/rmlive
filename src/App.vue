@@ -6,6 +6,7 @@ import TopToolbar from './components/header/TopToolbar.vue';
 import LiveStage from './components/layout/LiveStage.vue';
 import ScheduleArea from './components/layout/ScheduleArea.vue';
 import CurrentMatchPanel from './components/panels/CurrentMatchPanel.vue';
+import ErrorBoundary from './components/common/ErrorBoundary.vue';
 import { bindDanmuRoomReset } from './composables/danmuLifecycle';
 import { requestNotificationPermissionOnLaunch } from './composables/notificationPermissionOnLaunch';
 import { useScheduleNotifyPolling } from './composables/scheduleNotifyClient';
@@ -89,11 +90,15 @@ onBeforeUnmount(() => {
     <Toast position="top-right" />
     <TopToolbar />
 
-    <section v-if="showMatchHero" class="match-hero" :class="{ reserving: !runningMatchForSelectedZone }">
-      <CurrentMatchPanel :key="dataStore.selectedZoneId ?? 'zone-empty'" @team-select="onOpenTeamData" />
-    </section>
+    <ErrorBoundary>
+      <section v-if="showMatchHero" class="match-hero" :class="{ reserving: !runningMatchForSelectedZone }">
+        <CurrentMatchPanel :key="dataStore.selectedZoneId ?? 'zone-empty'" @team-select="onOpenTeamData" />
+      </section>
+    </ErrorBoundary>
 
-    <LiveStage @danmu="onDanmuReceived" @danmu-reset="onDanmuReset" />
+    <ErrorBoundary>
+      <LiveStage @danmu="onDanmuReceived" @danmu-reset="onDanmuReset" />
+    </ErrorBoundary>
 
     <ScheduleArea :enabled="enableSecondaryPanels" @team-select="onOpenTeamData" />
 

@@ -59,7 +59,7 @@ const wrapperStyle = computed(() => {
     :aria-label="teamName"
     role="img"
   >
-    <img v-if="logoUrl" :src="logoUrl" :alt="teamName" class="team-logo-img" decoding="async" />
+    <img v-if="logoUrl" :src="logoUrl" :alt="teamName" class="team-logo-img" loading="lazy" decoding="async" />
     <span v-else class="team-logo-placeholder">{{ placeholderText }}</span>
   </div>
 </template>

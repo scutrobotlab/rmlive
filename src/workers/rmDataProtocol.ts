@@ -17,6 +17,7 @@ export interface RmDataInitPayload {
   selectedQualityRes: string | null;
   selectedPerspectiveKey: string | null;
   hasManualZoneSelection: boolean;
+  ignoreLiveState: boolean;
 }
 
 export interface RmDataSnapshot {
@@ -66,12 +67,15 @@ export type RmDataWorkerIncomingMessage =
   | { type: 'USER_SELECT_QUALITY'; payload: { qualityRes: string | null } }
   | { type: 'RETRY_STREAM' }
   | { type: 'VISIBILITY_CHANGED'; payload: { hidden: boolean } }
-  | { type: 'STOP' };
+  | { type: 'STOP' }
+  | { type: 'HEARTBEAT' };
 
 export type RmDataWorkerOutgoingMessage =
   | { type: 'BOOTSTRAP_STATE'; payload: RmDataBootstrapPayload }
   | { type: 'PATCH_STATE'; payload: RmDataPatchPayload }
   | { type: 'STREAM_ERROR'; payload: { message: string } }
+  | { type: 'HEARTBEAT_ACK'; timestamp: number }
+  | { type: 'WORKER_ERROR'; error: { message: string; stack: string } }
   | {
       type: 'LOG';
       payload: { level: 'info' | 'warn'; scope: string; message: string; meta?: Record<string, unknown> };

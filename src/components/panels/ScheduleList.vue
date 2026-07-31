@@ -179,7 +179,7 @@ function onTeamSelect(payload: TeamSelectPayload) {
   <div v-if="!rows.length" class="empty-state">暂无数据</div>
 
   <div v-else class="schedule-list">
-    <section v-for="group in dateGroups" :key="group.date" class="date-group">
+    <section v-for="group in dateGroups" :key="group.date" class="date-group schedule-list-group">
       <div class="date-sticky">
         <Divider align="left" type="solid" class="date-divider">
           <span class="divider-date-row">

@@ -70,7 +70,7 @@ const settingsVisible = ref(false);
   <Toolbar class="top-toolbar">
     <template #start>
       <div class="toolbar-brand">
-        <img :src="brandLogoUrl" alt="RMLive logo" class="brand-logo" />
+        <img :src="brandLogoUrl" alt="RMLive logo" class="brand-logo" loading="lazy" decoding="async" />
         <div class="toolbar-brand-meta" v-if="!uiStore.isMobile">
           <h1>
             <span>RMLive - 不一样的直播间</span>
@@ -162,6 +162,8 @@ const settingsVisible = ref(false);
             v-if="mobileAccessQrUrl"
             :src="mobileAccessQrUrl"
             alt="RMLive 手机访问二维码"
+            loading="lazy"
+            decoding="async"
             class="h-[220px] w-[220px]"
           />
           <a

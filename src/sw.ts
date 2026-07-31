@@ -23,6 +23,47 @@ declare const self: ServiceWorkerGlobalScope & { __WB_MANIFEST: string[] };
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
 
+const VERSION_CHECK_INTERVAL = 30_000;
+let lastETag: string | null = null;
+
+async function storeETag(etag: string): Promise<void> {
+  try {
+    const cache = await caches.open('sw-version');
+    await cache.put('/sw-version', new Response(etag));
+  } catch {
+  }
+}
+
+async function getStoredETag(): Promise<string | null> {
+  try {
+    const cache = await caches.open('sw-version');
+    const cached = await cache.match('/sw-version');
+    return cached ? await cached.text() : null;
+  } catch {
+    return null;
+  }
+}
+
+async function checkForVersionChange(): Promise<void> {
+  try {
+    const resp = await fetch('/sw.js', { method: 'HEAD', cache: 'no-cache' });
+    const etag = resp.headers.get('ETag') || resp.headers.get('Last-Modified');
+
+    if (lastETag && etag && etag !== lastETag) {
+      const allClients = await self.clients.matchAll({ type: 'window' });
+      for (const client of allClients) {
+        client.postMessage({ type: 'SW_UPDATE_AVAILABLE' });
+      }
+    }
+
+    if (etag) {
+      lastETag = etag;
+      void storeETag(etag);
+    }
+  } catch {
+  }
+}
+
 async function fetchScheduleJson(): Promise<Schedule | null> {
   const url = getScheduleJsonUrl();
   const res = await fetch(url, { cache: 'no-store' });
@@ -110,5 +151,13 @@ self.addEventListener('periodicsync', (event: Event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    (async () => {
+      await self.clients.claim();
+
+      lastETag = await getStoredETag();
+      void checkForVersionChange();
+      setInterval(checkForVersionChange, VERSION_CHECK_INTERVAL);
+    })()
+  );
 });

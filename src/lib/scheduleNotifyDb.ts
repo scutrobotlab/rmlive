@@ -100,9 +100,10 @@ export async function replaceAllMatchSnapshots(rows: MatchNotifySnapshot[]): Pro
     tx.onerror = () => reject(tx.error);
     const store = tx.objectStore(STORE_MATCHES);
     store.clear();
+    const now = Date.now();
     for (const row of rows) {
       if (row.id) {
-        store.put({ ...row });
+        store.put({ ...row, updatedAt: now });
       }
     }
   });

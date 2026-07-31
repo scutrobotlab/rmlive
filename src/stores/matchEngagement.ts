@@ -6,6 +6,7 @@ import {
   MSG_TYPE_SUPPORT_TEAM,
   type EngagementInbound,
 } from '@/leancloud/rmliveIm';
+import { trackEvent } from '@/lib/tracking';
 import type { MatchView } from '@/utils/matchView';
 import { defineStore } from 'pinia';
 import { computed, ref, shallowRef } from 'vue';
@@ -328,6 +329,7 @@ export const useMatchEngagementStore = defineStore('matchEngagement', () => {
 
     try {
       await svc.sendSupportTeam(mk, college);
+      trackEvent('互动', '助威', mk, 1);
       scheduleHydrateRefresh();
     } catch (e) {
       if (side === 'red') {
@@ -349,6 +351,7 @@ export const useMatchEngagementStore = defineStore('matchEngagement', () => {
     reactions.value = { ...reactions.value, [reactionId]: (reactions.value[reactionId] ?? 0) + 1 };
     try {
       await svc.sendMatchReaction(mk, reactionId);
+      trackEvent('互动', '表情', mk, 1);
       scheduleHydrateRefresh();
     } catch (e) {
       const nextCount = Math.max(0, (reactions.value[reactionId] ?? 1) - 1);

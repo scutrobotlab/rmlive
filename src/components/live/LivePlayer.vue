@@ -19,6 +19,7 @@ import { formatStructuredName, resolveDisplaySchool } from '@/utils/danmuView';
 
 import type { DanmuAttributes, DanmuMessage } from '../../types/api';
 import { markPerformance } from '../../utils/observability';
+import { trackEvent } from '../../lib/tracking';
 import DanmuFilterDialog from '../dialogs/DanmuFilterDialog.vue';
 
 interface QualityOption {
@@ -80,6 +81,7 @@ let currentRoomId: string | null = null;
 let pendingRoomId: string | null = null;
 let roomSwitchToken = 0;
 let connectingService: DanmuService | null = null;
+let danmuReceiveCount = 0;
 let playerMountToken = 0;
 let playerHealthTimer: number | null = null;
 let healthVideo: HTMLVideoElement | null = null;
@@ -236,11 +238,13 @@ async function sendDanmuByRealtime(d: Danmu): Promise<boolean> {
 
   try {
     await danmuService.value.sendMessage(content, myAttributes);
+    trackEvent('弹幕', '发送', currentRoomId ?? undefined);
     // Return true so the plugin clears input and emits to track immediately.
     emit('danmu', buildLocalEchoDanmu(content, myAttributes));
     return true;
   } catch (error) {
     console.error('[LivePlayer] Failed to send danmu:', error);
+    trackEvent('弹幕', '发送失败', currentRoomId ?? undefined);
     toast.add({ severity: 'error', summary: '发送失败', detail: '弹幕发送失败，请稍后重试' });
     return false;
   }
@@ -443,6 +447,7 @@ async function destroyDanmu() {
 
   if (danmuService.value) {
     try {
+      trackEvent('弹幕', '断开', currentRoomId ?? undefined);
       await danmuService.value.disconnect();
     } catch (error) {
       console.warn('[LivePlayer] Ignore danmuService disconnect error:', error);
@@ -636,6 +641,10 @@ async function initDanmu(roomId: string) {
         emit('danmu', msg);
         if (msg.source !== 'history') {
           pushDanmuToPlayer(msg);
+          danmuReceiveCount += 1;
+          if (danmuReceiveCount % 50 === 0) {
+            trackEvent('弹幕', '接收', currentRoomId ?? undefined, danmuReceiveCount);
+          }
         }
       },
       onEngagementMessage: (p) => {
@@ -652,12 +661,14 @@ async function initDanmu(roomId: string) {
       },
       onError: (error) => {
         console.error('[LivePlayer] Danmu service error:', error);
+        trackEvent('错误', '弹幕连接', currentRoomId ?? undefined);
       },
     });
     connectingService = nextService;
 
     await nextService.connect(roomId);
     connectingService = null;
+    trackEvent('弹幕', '连接', roomId);
 
     if (token !== roomSwitchToken) {
       try {
@@ -674,6 +685,7 @@ async function initDanmu(roomId: string) {
     matchEngagementStore.registerViewerCountService(nextService);
     void matchEngagementStore.refreshHydrate({ trackLoading: true });
   } catch (error) {
+    trackEvent('错误', '弹幕连接失败', roomId);
     if (connectingService) {
       try {
         await connectingService.disconnect();
