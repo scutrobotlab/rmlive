@@ -3,7 +3,7 @@ import path from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import vue from '@vitejs/plugin-vue';
 import { visualizer } from 'rollup-plugin-visualizer';
-import { defineConfig } from 'vite';
+import { defineConfig, type HtmlTagDescriptor, type IndexHtmlTransformContext } from 'vite';
 import { mockDevServerPlugin } from 'vite-plugin-mock-dev-server';
 import { VitePWA } from 'vite-plugin-pwa';
 
@@ -123,6 +123,40 @@ export default defineConfig(({ mode }) => {
             open: false,
           })
         : null,
+      {
+        name: 'preload-player-chunks',
+        enforce: 'post',
+        transformIndexHtml(html: string, ctx: IndexHtmlTransformContext) {
+          if (!ctx.bundle) {
+            return html;
+          }
+
+          const tags: HtmlTagDescriptor[] = [];
+
+          for (const [, info] of Object.entries(ctx.bundle)) {
+            if (info.type !== 'chunk') {
+              continue;
+            }
+
+            const fileName = info.fileName;
+            if (!/\/?player-(?:hls|art)-\w+\.js$/.test(fileName)) {
+              continue;
+            }
+
+            tags.push({
+              tag: 'link',
+              attrs: {
+                rel: 'modulepreload',
+                crossorigin: true,
+                href: `/${fileName}`,
+              },
+              injectTo: 'head-prepend',
+            });
+          }
+
+          return { html, tags };
+        },
+      },
     ].filter(Boolean),
     server: {
       proxy: {

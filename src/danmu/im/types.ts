@@ -29,6 +29,7 @@ export interface IMatchEngagementGateway {
 
 export interface DanmuServiceHandlers {
   onMessage?: (msg: import('@/types/api').DanmuMessage) => void;
+  onDanmuList?: (messages: import('@/types/api').DanmuMessage[]) => void;
   onError?: (error: unknown) => void;
   includeHistory?: boolean;
   onEngagementMessage?: (msg: EngagementInbound) => void;
@@ -38,3 +39,7 @@ export interface DanmuServiceHandlers {
 export interface IDanmuFilterGateway {
   updateDanmuFilterRules(rules: DanmuFilterRules): Promise<void>;
 }
+
+export type HighlightedDanmu = Omit<import('@/types/api').DanmuMessage, 'source'> & {
+  source?: 'send' | 'history' | 'realtime';
+};

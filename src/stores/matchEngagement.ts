@@ -329,7 +329,7 @@ export const useMatchEngagementStore = defineStore('matchEngagement', () => {
 
     try {
       await svc.sendSupportTeam(mk, college);
-      trackEvent('互动', '助威', mk, 1);
+      trackEvent('engagement.support', { matchKey: mk, side });
       scheduleHydrateRefresh();
     } catch (e) {
       if (side === 'red') {
@@ -351,7 +351,7 @@ export const useMatchEngagementStore = defineStore('matchEngagement', () => {
     reactions.value = { ...reactions.value, [reactionId]: (reactions.value[reactionId] ?? 0) + 1 };
     try {
       await svc.sendMatchReaction(mk, reactionId);
-      trackEvent('互动', '表情', mk, 1);
+      trackEvent('engagement.reaction', { matchKey: mk, reactionId });
       scheduleHydrateRefresh();
     } catch (e) {
       const nextCount = Math.max(0, (reactions.value[reactionId] ?? 1) - 1);

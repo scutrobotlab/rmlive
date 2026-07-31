@@ -11,6 +11,7 @@ import type {
 } from '../types/api';
 import type { GroupSection, TeamGroupMeta } from '../utils/groupView';
 import type { MatchView } from '../utils/matchView';
+import { trackEvent, trackPageView } from '../lib/tracking';
 import { logInfo, logWarn, markPerformance, measurePerformance } from '../utils/observability';
 import type { PlayerPerspectiveOption, PlayerQualityOption } from '../utils/rmStreamView';
 import { normalizeZoneId, type ZoneOptionItem, type ZoneUiState } from '../utils/zoneView';
@@ -345,6 +346,7 @@ export const useRmDataStore = defineStore('rm-data', () => {
 
       if (data.type === 'STREAM_ERROR') {
         streamErrorMessage.value = data.payload.message;
+        trackEvent('player.stream_error', { zoneId: selectedZoneId.value });
         return;
       }
 
@@ -450,6 +452,8 @@ export const useRmDataStore = defineStore('rm-data', () => {
     selectedZoneId.value = normalized;
     historySelectedZoneId.value = normalized;
     postToWorker({ type: 'USER_SELECT_ZONE', payload: { zoneId: normalized } });
+    trackEvent('nav.zone_change', { zoneId: normalized });
+    trackPageView();
   }
 
   function selectQuality(qualityRes: string | null) {
@@ -484,6 +488,7 @@ export const useRmDataStore = defineStore('rm-data', () => {
     streamLoading.value = true;
     streamErrorMessage.value = '';
     postToWorker({ type: 'RETRY_STREAM' });
+    trackEvent('player.stream_retry', { zoneId: selectedZoneId.value });
   }
 
   return {

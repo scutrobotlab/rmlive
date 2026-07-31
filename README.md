@@ -97,6 +97,7 @@ pnpm preview
 | `VITE_CHATROOM_APP_KEY` | 弹幕必需 | LeanCloud 应用 Key。 |
 | `VITE_ENGAGEMENT_CHATROOM_ID` | 互动必需 | LeanCloud 互动房间 ID。 |
 | `VITE_ENGAGEMENT_QUERY_WINDOW_MINUTES` | 否 | 查询互动历史的时间窗口，默认 `30` 分钟。 |
+| `VITE_TRACKING_ENABLED` | 否 | 埋点开关。默认仅生产构建启用；`1` 强制开启（含开发环境），`0` 强制关闭。详见 [TRACK.md](./TRACK.md)。 |
 
 代理变量应填写完整 base URL。应用不会自动追加 `/static`。
 

@@ -42,6 +42,10 @@ export const useDanmuStore = defineStore('danmu', () => {
     messages.value = [];
   }
 
+  function setMessages(list: DanmuMessage[]) {
+    messages.value = list;
+  }
+
   function addMessage(msg: DanmuMessage) {
     const existingIndex = messages.value.findIndex((item) => item.id === msg.id);
     if (existingIndex >= 0) {
@@ -77,6 +81,7 @@ export const useDanmuStore = defineStore('danmu', () => {
     schoolCandidates,
     userCandidates,
     clearMessages,
+    setMessages,
     addMessage,
     resetMessages,
     pushMessage,

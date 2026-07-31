@@ -1,6 +1,7 @@
 import { useLocalStorage } from '@vueuse/core';
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
+import { trackEvent } from '@/lib/tracking';
 
 const THEME_KEY = 'rm-live-theme';
 const PK_ENABLED_KEY = 'rm-live-pk-enabled';
@@ -70,11 +71,21 @@ export const useUiStore = defineStore('ui', () => {
   function setDarkMode(enabled: boolean) {
     isDark.value = enabled;
     applyTheme();
+    trackEvent('settings.theme', { theme: enabled ? 'dark' : 'light' });
   }
 
   function setDanmuEnabled(enabled: boolean) {
     danmuEnabled.value = enabled;
+    trackEvent('settings.danmu', { enabled });
   }
+
+  watch(pkEnabled, (enabled) => {
+    trackEvent('settings.pk', { enabled });
+  });
+
+  watch(reactionEnabled, (enabled) => {
+    trackEvent('settings.reaction', { enabled });
+  });
 
   function updateViewport() {
     isMobile.value = window.innerWidth <= MOBILE_BREAKPOINT || isTouchMobileDevice();

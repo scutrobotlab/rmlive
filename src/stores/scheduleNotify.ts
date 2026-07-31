@@ -1,4 +1,5 @@
 import { putPrefsToDb } from '@/lib/scheduleNotifyDb';
+import { trackEvent } from '@/lib/tracking';
 import type { NotifyPolicy } from '@/utils/scheduleNotifyDiff';
 import { useLocalStorage } from '@vueuse/core';
 import { defineStore } from 'pinia';
@@ -32,17 +33,23 @@ export const useScheduleNotifyStore = defineStore('scheduleNotify', () => {
     { deep: true },
   );
 
+  watch(policy, (value) => {
+    trackEvent('settings.notify_policy', { policy: value });
+  });
+
   function toggleFollowMatchId(id: string): void {
     if (!id || id === '-') {
       return;
     }
     const next = new Set(followedMatchIds.value);
-    if (next.has(id)) {
+    const wasFollowing = next.has(id);
+    if (wasFollowing) {
       next.delete(id);
     } else {
       next.add(id);
     }
     followedMatchIds.value = [...next];
+    trackEvent(wasFollowing ? 'schedule.unfollow' : 'schedule.follow', { matchId: id });
   }
 
   function isFollowing(id: string): boolean {

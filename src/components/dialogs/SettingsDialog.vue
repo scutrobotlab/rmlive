@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useScheduleNotifyStore } from '@/stores/scheduleNotify';
 import { useUiStore } from '@/stores/ui';
+import { trackEvent } from '@/lib/tracking';
 import type { NotifyPolicy } from '@/utils/scheduleNotifyDiff';
 import { SelectButton } from 'primevue';
 import Button from 'primevue/button';
@@ -80,6 +81,7 @@ async function requestNotificationPermission() {
   try {
     const r = await globalThis.Notification.requestPermission();
     permissionHint.value = r === 'granted' ? '已授权' : `结果：${r}`;
+    trackEvent('notify.permission', { permission: r });
   } catch {
     permissionHint.value = '请求失败';
   }

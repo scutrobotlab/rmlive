@@ -9,6 +9,7 @@ import Tooltip from 'primevue/tooltip';
 import { createApp } from 'vue';
 
 import App from './App.vue';
+import { initTracking } from './lib/tracking';
 import { pruneLargeLocalStorageEntries, checkStorageQuota } from './lib/storageCleanup';
 import { markPerformance } from './utils/observability';
 
@@ -81,6 +82,8 @@ pinia.use(piniaPluginPersistedstate);
 app.use(pinia);
 
 import './styles/danmu-tooltip.css';
+
+initTracking();
 
 app.use(PrimeVue, {
   theme: {

@@ -127,3 +127,14 @@ export interface DanmuFilterRules {
   schools: string[];
   users: string[];
 }
+
+export interface QualityOption {
+  label: string;
+  value: string;
+  src: string;
+}
+
+export interface PerspectiveOption {
+  label: string;
+  value: string;
+}

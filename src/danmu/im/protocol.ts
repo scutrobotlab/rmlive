@@ -79,6 +79,11 @@ export type WorkerRequest =
     }
   | {
       id: string;
+      type: 'generate-mock-danmu';
+      payload: { count: number };
+    }
+  | {
+      id: string;
       type: 'dispose';
       payload: Record<string, never>;
     };
@@ -89,6 +94,7 @@ export type WorkerResponse =
 
 export type WorkerEvent =
   | { type: 'danmu'; payload: DanmuMessage }
+  | { type: 'danmu-list'; payload: { messages: DanmuMessage[] } }
   | { type: 'engagement'; payload: EngagementInbound }
   | { type: 'engagement-snapshot'; payload: EngagementSnapshotEventPayload }
   | { type: 'runtime-error'; payload: { message: string; code?: string; detail?: unknown } };
