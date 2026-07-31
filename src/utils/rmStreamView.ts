@@ -67,6 +67,10 @@ export function resolveEffectiveStreamErrorMessage(
   fallbackErrorMessage: string,
 ): string {
   if (!canPlaySelectedZone && zone) {
+    if (state === 'offline') {
+      return `${zone.zoneName} 等待开播`;
+    }
+
     if (state === 'upcoming') {
       return `${zone.zoneName} 尚未开播`;
     }

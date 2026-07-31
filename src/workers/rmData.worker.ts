@@ -31,7 +31,12 @@ import {
   toPlayerQualityOptions,
 } from '../utils/rmStreamView';
 import { getNowEpochSeconds } from '../utils/timeNow';
-import { normalizeZoneId, resolveZoneUiState, toZoneOptionItem, type ZoneOptionItem } from '../utils/zoneView';
+import {
+  normalizeZoneId,
+  resolveZoneUiState,
+  toZoneOptionItem,
+  type ZoneOptionItem,
+} from '../utils/zoneView';
 import { markPerformance } from '../utils/observability';
 import type {
   RmDataInitPayload,
@@ -299,7 +304,9 @@ function buildSnapshot(): RmDataSnapshot {
     state.selectedQualityRes,
     selectedPerspective?.key ?? undefined,
   );
-  const canPlaySelectedZone = Boolean(selectedZone && resolvedStreamUrl && !state.streamErrorMessage.trim());
+  const canPlaySelectedZone = Boolean(
+    selectedZone && selectedZone.liveState === 1 && resolvedStreamUrl && !state.streamErrorMessage.trim(),
+  );
   const effectiveStreamUrl = canPlaySelectedZone ? resolvedStreamUrl : null;
   const effectiveStreamErrorMessage = resolveEffectiveStreamErrorMessage(
     canPlaySelectedZone,
@@ -590,6 +597,19 @@ async function probeSelectedStreamAvailability(options: { showLoading: boolean }
   if (options.showLoading) {
     state.streamLoading = true;
     scheduleSnapshot('PATCH_STATE', STREAM_STATUS_KEYS);
+  }
+
+  if (selectedZone && selectedZone.liveState !== 1) {
+    if (token !== streamProbeToken) {
+      return;
+    }
+
+    state.streamErrorMessage = '';
+    if (options.showLoading) {
+      state.streamLoading = false;
+    }
+    scheduleSnapshot('PATCH_STATE', STREAM_STATUS_KEYS);
+    return;
   }
 
   if (!streamUrl) {
