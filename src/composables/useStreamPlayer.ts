@@ -4,7 +4,7 @@ import type { QualityOption, PerspectiveOption, DanmuMessage } from '@/types/api
 import { useUiStore } from '@/stores/ui';
 import { trackEvent } from '@/lib/tracking';
 import { markPerformance } from '@/utils/observability';
-import { onScopeDispose, ref, watch, type Ref } from 'vue';
+import { onMounted, onScopeDispose, ref, watch, type Ref } from 'vue';
 
 interface UseStreamPlayerOptions {
   container: Ref<HTMLDivElement | null>;
@@ -720,8 +720,14 @@ export function useStreamPlayer(options: UseStreamPlayerOptions) {
         destroyPlayer();
       }
     },
-    { immediate: true },
   );
+
+  onMounted(() => {
+    const url = options.streamUrl.value;
+    if (url) {
+      void applyStreamUrl(url);
+    }
+  });
 
   watch(
     [options.qualityOptions, options.selectedQualityRes] as const,
