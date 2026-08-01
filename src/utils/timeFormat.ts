@@ -31,3 +31,7 @@ export function formatFriendlyDateTime(value: unknown, fallback = '-'): string {
     hour12: false,
   }).format(d);
 }
+
+export function getNowEpochSeconds(): number {
+  return Math.floor(Date.now() / 1000);
+}

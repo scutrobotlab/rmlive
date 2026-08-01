@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useScheduleNotifyStore } from '@/stores/scheduleNotify';
 import { useUiStore } from '@/stores/ui';
-import { trackEvent } from '@/lib/tracking';
+import { trackEvent } from '@/utils/tracking';
 import type { NotifyPolicy } from '@/utils/scheduleNotifyDiff';
 import { SelectButton } from 'primevue';
 import Button from 'primevue/button';

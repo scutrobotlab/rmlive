@@ -11,7 +11,7 @@ import type {
 } from '../types/api';
 import type { GroupSection, TeamGroupMeta } from '../utils/groupView';
 import type { MatchView } from '../utils/matchView';
-import { trackEvent, trackPageView } from '../lib/tracking';
+import { trackEvent, trackPageView } from '../utils/tracking';
 import { logInfo, logWarn, markPerformance, measurePerformance } from '../utils/observability';
 import type { PlayerPerspectiveOption, PlayerQualityOption } from '../utils/rmStreamView';
 import { normalizeZoneId, type ZoneOptionItem, type ZoneUiState } from '../utils/zoneView';

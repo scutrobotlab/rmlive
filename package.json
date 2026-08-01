@@ -34,7 +34,8 @@
     "primeicons": "^7.0.0",
     "primevue": "^4.5.4",
     "uuid": "^13.0.0",
-    "vue": "^3.5.30"
+    "vue": "^3.5.30",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^7.7.2",

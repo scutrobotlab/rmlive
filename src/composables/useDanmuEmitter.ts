@@ -8,10 +8,9 @@ import { useMatchEngagementStore } from '@/stores/matchEngagement';
 import { useDanmuFilterStore } from '@/stores/danmuFilter';
 import { useDanmuStore } from '@/stores/danmu';
 import { DanmuService } from '@/danmu/DanmuService';
-import type { ImWorkerClient } from '@/danmu/im/ImWorkerClient';
 import { formatStructuredName, resolveDisplaySchool } from '@/utils/danmuView';
 import { generateMockDanmuMessages } from '@/utils/mockDanmu';
-import { trackEvent } from '@/lib/tracking';
+import { trackEvent } from '@/utils/tracking';
 import type { DanmuAttributes, DanmuMessage } from '@/types/api';
 
 interface UseDanmuEmitterOptions {
@@ -43,7 +42,6 @@ const BLUE_SIDE_DANMU_STYLE: TrackDanmuStyle = {
 
 export function useDanmuEmitter(options: UseDanmuEmitterOptions) {
   const danmuService = ref<DanmuService | null>(null);
-  let workerClientRef: ImWorkerClient | null = null;
   const isPlayerReady = ref(false);
   let currentRoomId: string | null = null;
   let pendingRoomId: string | null = null;
@@ -203,10 +201,8 @@ export function useDanmuEmitter(options: UseDanmuEmitterOptions) {
         console.warn('[LivePlayer] Ignore danmuService disconnect error:', error);
       }
       danmuService.value = null;
-      workerClientRef = null;
     }
-    matchEngagementStore.registerDanmuService(null);
-    matchEngagementStore.registerViewerCountService(null);
+    matchEngagementStore.attachDanmuService(null);
   }
 
   function syncDanmuConnection() {
@@ -285,12 +281,6 @@ export function useDanmuEmitter(options: UseDanmuEmitterOptions) {
 
       if (danmuService.value) {
         await danmuService.value.generateMockDanmu(n);
-      } else if (workerClientRef) {
-        const unsub = workerClientRef.onDanmuList((messages) => {
-          danmuStore.setMessages(messages);
-        });
-        await workerClientRef.generateMockDanmu(n);
-        unsub();
       } else {
         const messages = generateMockDanmuMessages(n);
         danmuStore.setMessages(messages);
@@ -309,9 +299,7 @@ export function useDanmuEmitter(options: UseDanmuEmitterOptions) {
     }
 
     if (currentRoomId === roomId && danmuService.value) {
-      workerClientRef = danmuService.value.getWorkerClient();
-      matchEngagementStore.registerDanmuService(danmuService.value);
-      matchEngagementStore.registerViewerCountService(danmuService.value);
+      matchEngagementStore.attachDanmuService(danmuService.value);
       void matchEngagementStore.refreshHydrate({ trackLoading: true });
       return;
     }
@@ -362,7 +350,6 @@ export function useDanmuEmitter(options: UseDanmuEmitterOptions) {
         },
       });
       connectingService = nextService;
-      workerClientRef = nextService.getWorkerClient();
 
       await nextService.connect(roomId);
       connectingService = null;
@@ -379,8 +366,7 @@ export function useDanmuEmitter(options: UseDanmuEmitterOptions) {
 
       danmuService.value = nextService;
       await nextService.updateDanmuFilterRules(danmuFilterStore.rules);
-      matchEngagementStore.registerDanmuService(nextService);
-      matchEngagementStore.registerViewerCountService(nextService);
+      matchEngagementStore.attachDanmuService(nextService);
       void matchEngagementStore.refreshHydrate({ trackLoading: true });
     } catch (error) {
       trackEvent('danmu.connect_fail', { zoneId: rmDataStore.selectedZoneId });

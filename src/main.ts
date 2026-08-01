@@ -9,8 +9,8 @@ import Tooltip from 'primevue/tooltip';
 import { createApp } from 'vue';
 
 import App from './App.vue';
-import { initTracking } from './lib/tracking';
-import { pruneLargeLocalStorageEntries, checkStorageQuota } from './lib/storageCleanup';
+import { initTracking } from './utils/tracking';
+import { pruneLargeLocalStorageEntries, checkStorageQuota } from './storage/storageCleanup';
 import { markPerformance } from './utils/observability';
 
 function isFullscreenLikeActive() {

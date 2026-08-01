@@ -8,7 +8,7 @@ import {
 } from '@/leancloud/rmliveIm';
 import type { DanmuAttributes, DanmuFilterRules, DanmuMessage, DanmuMode } from '@/types/api';
 import { isDanmuMessageBlocked, normalizeDanmuFilterRules } from '@/utils/danmuFilterRules';
-import type { Conversation, IMClient, Message } from 'leancloud-realtime';
+import type { Conversation, IMClient, Message, TypedMessage } from 'leancloud-realtime';
 import type { WorkerEvent, WorkerMessage, WorkerRequest, WorkerResponse } from './protocol';
 import { loadLeancloudRuntime } from './workerEnv';
 
@@ -312,7 +312,7 @@ class ImRuntime {
       'rmlive:msg_for_team': encodeTeamTarget(matchKey, collegeName),
     };
     message.setAttributes(attrs);
-    let sent: unknown;
+    let sent: Message;
     try {
       sent = await engagement.send(message);
     } catch (error) {
@@ -338,7 +338,7 @@ class ImRuntime {
       'rmlive:reaction_id': reactionId,
     };
     message.setAttributes(attrs);
-    let sent: unknown;
+    let sent: Message;
     try {
       sent = await engagement.send(message);
     } catch (error) {
@@ -421,7 +421,7 @@ class ImRuntime {
     this.danmuClientMessageHandler = (message: Message, conversation?: Conversation) => {
       const messageId = this.toStableMessageId(message, 'client-live');
       const incomingConversationId = String(
-        (conversation as any)?.id ??
+        conversation?.id ??
           (message as any)?.conversation?.id ??
           (message as any)?.conversationId ??
           (message as any)?.cid ??
@@ -438,7 +438,7 @@ class ImRuntime {
       }
 
       for (const binding of this.roomBindings.values()) {
-        const bindingConversationId = String((binding.conversation as any)?.id ?? '');
+        const bindingConversationId = String(binding.conversation?.id ?? '');
         if (bindingConversationId && bindingConversationId === incomingConversationId) {
           this.emitDanmuFromMessage(message, 'realtime');
           return;
@@ -466,10 +466,9 @@ class ImRuntime {
   }
 
   private async resolveChatRoomById(client: IMClient, conversationId: string): Promise<Conversation> {
-    const typedClient = client as any;
     try {
-      const room = await typedClient
-        .getChatRoomQuery()
+      const query = client.getChatRoomQuery() as any;
+      const room = await query
         .equalTo('objectId', conversationId)
         .compact(true)
         .limit(1)
@@ -481,7 +480,7 @@ class ImRuntime {
       // Fallback to generic conversation lookup below.
     }
 
-    return (await typedClient.getConversation(conversationId, true)) as Conversation;
+    return (await client.getConversation(conversationId, true)) as Conversation;
   }
 
   private async joinDanmuConversation(conversationId: string): Promise<Conversation> {
@@ -543,7 +542,7 @@ class ImRuntime {
       const parsed = parseEngagementFromAttributes(
         attrs,
         this.toStableMessageId(message, 'engagement-live'),
-        this.toTimestamp((message as any).timestamp),
+        this.toTimestamp(message.timestamp),
       );
       if (!parsed) {
         return;
@@ -572,7 +571,7 @@ class ImRuntime {
     try {
       const engagement = await this.getEngagementConversation();
       const runtimeModule = await loadLeancloudRuntime();
-      const { MessageQueryDirection, TextMessage } = runtimeModule as any;
+      const { MessageQueryDirection, TextMessage } = runtimeModule;
 
       const cutoffTs = Date.now() - HISTORY_WINDOW_MS;
       let cursorMessageId: string | undefined;
@@ -593,7 +592,7 @@ class ImRuntime {
 
         let reachedWindowBoundary = false;
         for (const message of page) {
-          const ts = this.toTimestamp((message as any).timestamp);
+          const ts = this.toTimestamp(message.timestamp);
           if (ts < cutoffTs) {
             reachedWindowBoundary = true;
             continue;
@@ -614,7 +613,7 @@ class ImRuntime {
 
         this.markStateDirty(state);
 
-        const oldest = page[page.length - 1] as any;
+        const oldest = page[page.length - 1];
         const nextCursorId = oldest?.id ? String(oldest.id) : '';
         const oldestTs = this.toTimestamp(oldest?.timestamp);
         if (!nextCursorId || oldestTs <= cutoffTs || reachedWindowBoundary || nextCursorId === cursorMessageId) {
@@ -655,11 +654,11 @@ class ImRuntime {
     this.markStateDirty(state);
   }
 
-  private syncLocalEngagementAfterSend(attrs: Record<string, unknown>, sentMessage: unknown, fallbackPrefix: string) {
+  private syncLocalEngagementAfterSend(attrs: Record<string, unknown>, sentMessage: Message, fallbackPrefix: string) {
     const parsed = parseEngagementFromAttributes(
       attrs,
       this.toStableMessageId(sentMessage, fallbackPrefix),
-      this.toTimestamp((sentMessage as any)?.timestamp),
+      this.toTimestamp(sentMessage.timestamp),
     );
     if (!parsed) {
       return;
@@ -804,7 +803,7 @@ class ImRuntime {
     const style = this.normalizeStyle(attrs);
     const danmu: DanmuMessage = {
       id: messageId,
-      timestamp: this.toTimestamp((message as any).timestamp),
+      timestamp: this.toTimestamp(message.timestamp),
       text: rawText,
       username: String(attrs.username ?? '匿名用户'),
       nickname: String(attrs.nickname ?? ''),
@@ -876,9 +875,9 @@ class ImRuntime {
     return out;
   }
 
-  private extractAttributes(message: unknown): Record<string, unknown> {
-    const m = message as any;
-    return (m?.getAttributes?.() || m?.attributes || m?.content?._lcattrs || m?.content?.attributes || {}) as Record<
+  private extractAttributes(message: Message): Record<string, unknown> {
+    const typed = message as TypedMessage;
+    return (typed.getAttributes?.() || (message as any)?.attributes || (message as any)?.content?._lcattrs || (message as any)?.content?.attributes || {}) as Record<
       string,
       unknown
     >;

@@ -10,7 +10,15 @@ import type {
 } from '../types/api';
 import { buildLiveJsonUrl } from '../utils/urlProxy';
 import { normalizeZoneId } from '../utils/zoneView';
-import { fetchJson } from './http';
+import { fetchValidatedJson } from './http';
+import {
+  currentAndNextMatchesSchema,
+  groupRankInfoSchema,
+  groupsOrderSchema,
+  liveGameInfoSchema,
+  robotDataSchema,
+  scheduleSchema,
+} from './schemas';
 import { startPolling, type PollingTask } from './polling';
 
 const API_BASE = '/live_json';
@@ -24,32 +32,28 @@ export const endpoints = {
   schedule: `${API_BASE}/schedule.json`,
 };
 
-async function fetchLiveJsonEndpoint<T>(rawUrl: string): Promise<T> {
-  return fetchJson<T>(buildLiveJsonUrl(rawUrl));
+export async function fetchLiveGameInfo(): Promise<LiveGameInfo> {
+  return fetchValidatedJson<LiveGameInfo>(buildLiveJsonUrl(endpoints.liveGameInfo), liveGameInfoSchema);
 }
 
-export async function fetchLiveGameInfo() {
-  return fetchLiveJsonEndpoint<LiveGameInfo>(endpoints.liveGameInfo);
+export async function fetchCurrentAndNextMatches(): Promise<CurrentAndNextMatches> {
+  return fetchValidatedJson<CurrentAndNextMatches>(buildLiveJsonUrl(endpoints.currentAndNextMatches), currentAndNextMatchesSchema);
 }
 
-export async function fetchCurrentAndNextMatches() {
-  return fetchLiveJsonEndpoint<CurrentAndNextMatches>(endpoints.currentAndNextMatches);
+export async function fetchGroupsOrder(): Promise<GroupsOrder> {
+  return fetchValidatedJson<GroupsOrder>(buildLiveJsonUrl(endpoints.groupsOrder), groupsOrderSchema);
 }
 
-export async function fetchGroupsOrder() {
-  return fetchLiveJsonEndpoint<GroupsOrder>(endpoints.groupsOrder);
+export async function fetchGroupRankInfo(): Promise<GroupRankInfo> {
+  return fetchValidatedJson<GroupRankInfo>(buildLiveJsonUrl(endpoints.groupRankInfo), groupRankInfoSchema);
 }
 
-export async function fetchGroupRankInfo() {
-  return fetchLiveJsonEndpoint<GroupRankInfo>(endpoints.groupRankInfo);
+export async function fetchRobotData(): Promise<RobotData> {
+  return fetchValidatedJson<RobotData>(buildLiveJsonUrl(endpoints.robotData), robotDataSchema);
 }
 
-export async function fetchRobotData() {
-  return fetchLiveJsonEndpoint<RobotData>(endpoints.robotData);
-}
-
-export async function fetchSchedule() {
-  return fetchLiveJsonEndpoint<Schedule>(endpoints.schedule);
+export async function fetchSchedule(): Promise<Schedule> {
+  return fetchValidatedJson<Schedule>(buildLiveJsonUrl(endpoints.schedule), scheduleSchema);
 }
 
 export interface RmPollingHandlers {
