@@ -6,24 +6,33 @@ on:
       - release
   workflow_dispatch:
 
+concurrency:
+  group: deploy-cos
+  cancel-in-progress: false
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       VITE_IMG_PROXY: ${{ vars.VITE_IMG_PROXY }}
       VITE_LIVEJSON_PROXY: ${{ vars.VITE_LIVEJSON_PROXY }}
       VITE_CHATROOM_APP_ID: ${{ secrets.VITE_CHATROOM_APP_ID }}
       VITE_CHATROOM_APP_KEY: ${{ secrets.VITE_CHATROOM_APP_KEY }}
       VITE_ENGAGEMENT_CHATROOM_ID: ${{ secrets.VITE_ENGAGEMENT_CHATROOM_ID }}
+      TENCENT_SECRET_ID: ${{ secrets.TENCENT_CLOUD_SECRET_ID }}
+      TENCENT_SECRET_KEY: ${{ secrets.TENCENT_CLOUD_SECRET_KEY }}
+      COS_BUCKET: ${{ secrets.COS_BUCKET }}
+      COS_REGION: ${{ secrets.COS_REGION }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm
@@ -34,36 +43,23 @@ jobs:
       - name: Build
         run: pnpm build:all
 
-      - name: Deploy to Tencent COS
-        uses: TencentCloud/cos-action@v1
-        with:
-          secret_id: ${{ secrets.TENCENT_CLOUD_SECRET_ID }}
-          secret_key: ${{ secrets.TENCENT_CLOUD_SECRET_KEY }}
-          cos_bucket: ${{ secrets.COS_BUCKET }}
-          cos_region: ${{ secrets.COS_REGION }}
-          local_path: dist
-          remote_path: /
-          clean: true
-
-      - name: Prevent stale app shell and service worker cache
+      - name: Deploy to Tencent COS (incremental)
         run: |
-          pipx install coscmd
-          coscmd config \
-            -a "${{ secrets.TENCENT_CLOUD_SECRET_ID }}" \
-            -s "${{ secrets.TENCENT_CLOUD_SECRET_KEY }}" \
-            -b "${{ secrets.COS_BUCKET }}" \
-            -r "${{ secrets.COS_REGION }}"
-          coscmd upload -f -y -H '{"Cache-Control":"no-cache, no-store, must-revalidate"}' dist/index.html /index.html
-          coscmd upload -f -y -H '{"Cache-Control":"no-cache, no-store, must-revalidate"}' dist/sw.js /sw.js
-          coscmd upload -f -y -H '{"Cache-Control":"no-cache, no-store, must-revalidate"}' dist/manifest.webmanifest /manifest.webmanifest
-          coscmd upload -f -y -H '{"Cache-Control":"no-cache, no-store, must-revalidate"}' dist/iframe-inject.js /iframe-inject.js
+          pip install --quiet --break-system-packages coscmd
+          coscmd config -a "$TENCENT_SECRET_ID" -s "$TENCENT_SECRET_KEY" -b "$COS_BUCKET" -r "$COS_REGION"
+          # 增量同步：仅上传 md5 有变化的文件，-e 删除远端已不存在的旧哈希资源（保留 clean 语义但不再全量重传）
+          coscmd sync -r -e ./dist/ /
+          # app shell / SW 强制刷新 no-cache 头，避免版本更新后命中旧缓存
+          for f in index.html sw.js manifest.webmanifest iframe-inject.js; do
+            coscmd upload -f -y -H '{"Cache-Control":"no-cache, no-store, must-revalidate"}' "dist/$f" "/$f"
+          done
 
       - name: Purge Tencent CDN app shell cache
         run: |
-          pipx install tccli
-          tccli configure set secretId "${{ secrets.TENCENT_CLOUD_SECRET_ID }}"
-          tccli configure set secretKey "${{ secrets.TENCENT_CLOUD_SECRET_KEY }}"
-          tccli configure set region "${{ secrets.COS_REGION }}"
+          pip install --quiet --break-system-packages tccli
+          tccli configure set secretId "$TENCENT_SECRET_ID"
+          tccli configure set secretKey "$TENCENT_SECRET_KEY"
+          tccli configure set region "$COS_REGION"
           tccli cdn PurgeUrlsCache --Urls '[
             "https://rmlive.scutbot.cn/",
             "https://rmlive.scutbot.cn/index.html",
