@@ -7,7 +7,7 @@ import DanmuFilterDialog from '@/components/dialogs/DanmuFilterDialog.vue';
 import ProgressSpinner from 'primevue/progressspinner';
 import Message from 'primevue/message';
 import { storeToRefs } from 'pinia';
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useDanmuEmitter } from '../../composables/useDanmuEmitter';
 import { useDanmuStore } from '../../stores/danmu';
 import type { DanmuMessage, PerspectiveOption, QualityOption } from '../../types/api';
@@ -71,7 +71,7 @@ function onShowFilterDialog() {
 const container = ref<HTMLDivElement | null>(null);
 const danmukuPlugin = ref<any>(null);
 
-useDanmuEmitter({
+const emitter = useDanmuEmitter({
   danmuEnabled: danmuEnabledAtLoad,
   isIFrame: false,
   danmukuPlugin,
@@ -110,8 +110,38 @@ const playerProxy = useStreamPlayer({
   onRetry: () => emit('retry'),
   onQualityChange: (res: string) => emit('qualityChange', res),
   onPerspectiveChange: (key: string) => emit('perspectiveChange', key),
-  onPlayerReady: () => {},
+  onPlayerReady: () => {
+    emitter.isPlayerReady.value = true;
+    emitter.syncDanmuConnection();
+  },
   externalDanmukuPlugin: danmukuPlugin,
+});
+
+watch(
+  () => props.chatRoomId,
+  (roomId) => {
+    emitter.setPendingRoomId(roomId ?? null);
+    emitter.clearPendingDanmuQueue();
+    emitter.syncDanmuConnection();
+  },
+  { immediate: true },
+);
+
+watch(
+  () => danmuFilterStore.rules,
+  (rules) => {
+    void emitter.danmuService.value?.updateDanmuFilterRules(rules).catch((error) => {
+      console.warn('[LivePlayer] failed to update worker danmu filter rules', error);
+    });
+  },
+  { deep: true },
+);
+
+emitter.exposeDanmuDebugApi();
+
+onBeforeUnmount(() => {
+  emitter.destroyDanmu();
+  emitter.tidyDebugApi();
 });
 
 function retry() {
