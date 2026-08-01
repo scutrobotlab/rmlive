@@ -29,7 +29,7 @@ const liveZoneSchema = z
 
 export const liveGameInfoSchema = z
   .object({
-    eventData: z.array(liveZoneSchema).optional(),
+    eventData: z.array(liveZoneSchema).nullable().optional(),
   })
   .passthrough();
 
