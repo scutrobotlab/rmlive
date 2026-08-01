@@ -1,3 +1,5 @@
+import type { ZodSchema } from 'zod';
+
 export interface RequestOptions {
   timeoutMs?: number;
   retries?: number;
@@ -57,4 +59,9 @@ export async function fetchJson<T>(url: string, options: RequestOptions = {}): P
   }
 
   throw new HttpError('Unexpected request state');
+}
+
+export async function fetchValidatedJson<T>(url: string, schema: ZodSchema, options: RequestOptions = {}): Promise<T> {
+  const raw = await fetchJson<unknown>(url, options);
+  return schema.parse(raw) as T;
 }

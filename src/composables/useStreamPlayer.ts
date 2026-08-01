@@ -2,7 +2,7 @@ import type Artplayer from 'artplayer';
 import type { Option } from 'artplayer';
 import type { QualityOption, PerspectiveOption, DanmuMessage } from '@/types/api';
 import { useUiStore } from '@/stores/ui';
-import { trackEvent } from '@/lib/tracking';
+import { trackEvent } from '@/utils/tracking';
 import { markPerformance } from '@/utils/observability';
 import { onMounted, onScopeDispose, ref, watch, type Ref } from 'vue';
 

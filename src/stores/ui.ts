@@ -1,7 +1,7 @@
 import { useLocalStorage } from '@vueuse/core';
 import { defineStore } from 'pinia';
 import { ref, watch } from 'vue';
-import { trackEvent } from '@/lib/tracking';
+import { trackEvent } from '@/utils/tracking';
 
 const THEME_KEY = 'rm-live-theme';
 const PK_ENABLED_KEY = 'rm-live-pk-enabled';

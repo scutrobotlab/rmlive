@@ -134,10 +134,6 @@ export class DanmuService implements IMatchEngagementGateway, IDanmuFilterGatewa
     return this.workerClient.generateMockDanmu(count);
   }
 
-  getWorkerClient(): ImWorkerClient {
-    return this.workerClient;
-  }
-
   async disconnect(): Promise<void> {
     if (this.disconnecting) {
       return;

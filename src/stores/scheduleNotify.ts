@@ -1,5 +1,5 @@
-import { putPrefsToDb } from '@/lib/scheduleNotifyDb';
-import { trackEvent } from '@/lib/tracking';
+import { putPrefsToDb } from '@/storage/scheduleNotifyDb';
+import { trackEvent } from '@/utils/tracking';
 import type { NotifyPolicy } from '@/utils/scheduleNotifyDiff';
 import { useLocalStorage } from '@vueuse/core';
 import { defineStore } from 'pinia';

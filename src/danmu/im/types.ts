@@ -25,6 +25,7 @@ export interface IMatchEngagementGateway {
     blueSupport: number;
     reactions: Record<string, number>;
   }>;
+  fetchChatRoomCount(): Promise<number>;
 }
 
 export interface DanmuServiceHandlers {

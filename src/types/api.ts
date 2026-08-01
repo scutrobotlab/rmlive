@@ -1,6 +1,6 @@
 export type AnyRecord = Record<string, unknown>;
 
-export interface MatchBrief extends AnyRecord {
+export interface MatchBrief {
   id?: string | number;
   name?: string;
   status?: string;
@@ -12,20 +12,20 @@ export interface MatchBrief extends AnyRecord {
   end_time?: string;
 }
 
-export interface LiveStreamCandidate extends AnyRecord {
+export interface LiveStreamCandidate {
   label?: string;
   res?: string;
   type?: string;
   src?: string;
 }
 
-export interface LiveFpvEntry extends AnyRecord {
+export interface LiveFpvEntry {
   role?: string;
   headimg?: string;
   sources?: LiveStreamCandidate[];
 }
 
-export interface ReplayVideoContent extends AnyRecord {
+export interface ReplayVideoContent {
   title1?: string;
   main_source_url?: string;
   main_remote_url?: string;
@@ -33,21 +33,29 @@ export interface ReplayVideoContent extends AnyRecord {
   match_id?: string | number;
 }
 
-export interface ReplayVideoEntry extends AnyRecord {
+export interface ReplayVideoEntry {
   content?: ReplayVideoContent;
 }
 
-export interface LiveZone extends AnyRecord {
+export interface LiveZone {
   zoneId?: string | number;
   zoneName?: string;
-  liveState?: number;
+  liveState?: unknown;
   matchState?: number;
+  startAt?: unknown;
+  start_time?: unknown;
+  endAt?: unknown;
+  end_time?: unknown;
+  zoneDate?: string[];
+  live_state?: unknown;
+  match_state?: unknown;
+  chatRoomId?: unknown;
   zoneLiveString?: LiveStreamCandidate[];
   fpvData?: LiveFpvEntry[];
   videos?: ReplayVideoEntry[];
 }
 
-export interface LiveGameInfo extends AnyRecord {
+export interface LiveGameInfo {
   eventData?: LiveZone[];
   live_url?: string;
   hls_url?: string;
@@ -59,7 +67,7 @@ export interface LiveGameInfo extends AnyRecord {
 
 export type CurrentAndNextMatches = AnyRecord[] | AnyRecord;
 
-export interface GroupInfo extends AnyRecord {
+export interface GroupInfo {
   name?: string;
   teams?: string[];
 }
@@ -67,7 +75,7 @@ export interface GroupInfo extends AnyRecord {
 export type GroupsOrder = GroupInfo[] | AnyRecord;
 export type GroupRankInfo = AnyRecord;
 
-export interface RobotDataEntry extends AnyRecord {
+export interface RobotDataEntry {
   team?: string;
   robot?: string;
   score?: number;
@@ -77,7 +85,7 @@ export interface RobotDataEntry extends AnyRecord {
 
 export type RobotData = RobotDataEntry[] | AnyRecord;
 
-export interface ScheduleEntry extends AnyRecord {
+export interface ScheduleEntry {
   id?: string | number;
   date?: string;
   time?: string;

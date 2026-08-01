@@ -10,7 +10,7 @@ import ErrorBoundary from './components/common/ErrorBoundary.vue';
 import { bindDanmuRoomReset } from './composables/danmuLifecycle';
 import { requestNotificationPermissionOnLaunch } from './composables/notificationPermissionOnLaunch';
 import { useScheduleNotifyPolling } from './composables/scheduleNotifyClient';
-import { trackEvent } from './lib/tracking';
+import { trackEvent } from './utils/tracking';
 import { useDanmuStore } from './stores/danmu';
 import { useRmDataStore } from './stores/rmData';
 import { useScheduleNotifyStore } from './stores/scheduleNotify';

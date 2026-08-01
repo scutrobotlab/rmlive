@@ -6,7 +6,7 @@ import {
   MSG_TYPE_SUPPORT_TEAM,
   type EngagementInbound,
 } from '@/leancloud/rmliveIm';
-import { trackEvent } from '@/lib/tracking';
+import { trackEvent } from '@/utils/tracking';
 import type { MatchView } from '@/utils/matchView';
 import { defineStore } from 'pinia';
 import { computed, ref, shallowRef } from 'vue';
@@ -37,7 +37,6 @@ export const useMatchEngagementStore = defineStore('matchEngagement', () => {
   const supportFxEvents = ref<SupportFxEvent[]>([]);
 
   const danmuServiceRef = shallowRef<IMatchEngagementGateway | null>(null);
-  const viewerCountServiceRef = shallowRef<{ fetchChatRoomCount(): Promise<number> } | null>(null);
   const supportFxTimers = new Map<string, ReturnType<typeof setTimeout>>();
   let hydrateRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   let viewerCountPollTimer: ReturnType<typeof setInterval> | null = null;
@@ -77,22 +76,14 @@ export const useMatchEngagementStore = defineStore('matchEngagement', () => {
     viewerCount.value = null;
   }
 
-  function registerDanmuService(service: IMatchEngagementGateway | null) {
+  function attachDanmuService(service: IMatchEngagementGateway | null) {
     danmuServiceRef.value = service;
     if (!service) {
       clearHydrateRefreshTimer();
-      return;
-    }
-  }
-
-  function registerViewerCountService(service: { fetchChatRoomCount(): Promise<number> } | null) {
-    viewerCountServiceRef.value = service;
-    if (!service) {
       clearViewerCountPollTimer();
       viewerCount.value = null;
       return;
     }
-
     if (currentMatchKey.value) {
       startViewerCountPolling();
     }
@@ -114,7 +105,7 @@ export const useMatchEngagementStore = defineStore('matchEngagement', () => {
 
   function startViewerCountPolling() {
     clearViewerCountPollTimer();
-    if (!viewerCountServiceRef.value || !currentMatchKey.value) {
+    if (!danmuServiceRef.value || !currentMatchKey.value) {
       return;
     }
 
@@ -367,7 +358,7 @@ export const useMatchEngagementStore = defineStore('matchEngagement', () => {
   }
 
   async function refreshViewerCount() {
-    const svc = viewerCountServiceRef.value;
+    const svc = danmuServiceRef.value;
     if (!svc || !currentMatchKey.value) {
       viewerCount.value = null;
       return;
@@ -397,8 +388,7 @@ export const useMatchEngagementStore = defineStore('matchEngagement', () => {
     viewerCount,
     supportFxEvents,
     hydrateLoading,
-    registerDanmuService,
-    registerViewerCountService,
+    attachDanmuService,
     applyRunningMatch,
     ingestLive,
     applyWorkerSnapshot,

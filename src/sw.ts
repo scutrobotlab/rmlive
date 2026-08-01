@@ -11,10 +11,10 @@
  */
 import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching';
 
-import { getAllMatchSnapshots, getPrefsFromDb, replaceAllMatchSnapshots } from './lib/scheduleNotifyDb';
+import { getAllMatchSnapshots, getPrefsFromDb, replaceAllMatchSnapshots } from './storage/scheduleNotifyDb';
 import type { Schedule } from './types/api';
 import { getScheduleRows } from './utils/matchView';
-import { getScheduleJsonUrl } from './utils/scheduleJsonUrl';
+import { getScheduleJsonUrl } from './utils/urlProxy';
 import type { MatchNotifySnapshot } from './utils/scheduleNotifyDiff';
 import { diffScheduleSnapshots, matchViewToNotifySnapshot } from './utils/scheduleNotifyDiff';
 

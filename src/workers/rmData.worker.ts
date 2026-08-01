@@ -30,7 +30,7 @@ import {
   toPlayerPerspectiveOptions,
   toPlayerQualityOptions,
 } from '../utils/rmStreamView';
-import { getNowEpochSeconds } from '../utils/timeNow';
+import { getNowEpochSeconds } from '../utils/timeFormat';
 import {
   normalizeZoneId,
   resolveZoneUiState,
