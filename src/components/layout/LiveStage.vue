@@ -166,8 +166,14 @@ function onDanmuReset() {
         @danmu-list="onDanmuList"
         @danmu-reset="onDanmuReset"
       />
-      <MatchReactionStrip v-if="reactionEnabled && hasCurrentMatch" class="mt-2" />
-      <div v-else-if="reactionEnabled && showMatchDependentPlaceholder" class="reaction-slot mt-2" aria-hidden="true" />
+      <div class="mt-2">
+        <MatchReactionStrip v-if="reactionEnabled && hasCurrentMatch" />
+        <div
+          v-else-if="reactionEnabled && showMatchDependentPlaceholder"
+          class="reaction-slot"
+          aria-hidden="true"
+        />
+      </div>
 
       <Fieldset v-if="danmuEnabledAtLoad && isMobile" legend="弹幕列表" toggleable class="mobile-danmu-panel">
         <div class="mobile-danmu-wrap">
