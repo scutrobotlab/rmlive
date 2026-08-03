@@ -531,6 +531,7 @@ onBeforeUnmount(() => {
 
   .license-file-dialog :deep(.p-dialog-content) {
     max-height: calc(100vh - 7rem);
+    overflow-y: hidden;
   }
 
   .license-file-pages {
@@ -547,14 +548,14 @@ onBeforeUnmount(() => {
   .license-image-wrap {
     display: flex;
     max-width: 100%;
-    max-height: calc(100vh - 10rem);
+    max-height: calc(100dvh - 13.5rem);
   }
 
   .license-image-wrap img {
     width: auto;
     max-width: 100%;
     height: auto;
-    max-height: calc(100vh - 10rem);
+    max-height: calc(100dvh - 13.5rem);
     object-fit: contain;
   }
 }
