@@ -110,6 +110,7 @@ export default defineConfig(({ mode }) => {
         },
         injectManifest: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,woff,ttf}'],
+          globIgnores: ['robomaster-live-license-*.*'],
         },
         devOptions: {
           enabled: false,

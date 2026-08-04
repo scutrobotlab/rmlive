@@ -222,6 +222,11 @@ function pickAutoZoneIdByPriority(options: ZoneOptionItem[], historyZoneId: stri
     return living.value;
   }
 
+  const ended = [...options].reverse().find((item) => item.state === 'ended');
+  if (ended) {
+    return ended.value;
+  }
+
   const offline = options.find((item) => item.state === 'offline');
   if (offline) {
     return offline.value;
