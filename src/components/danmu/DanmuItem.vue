@@ -57,8 +57,6 @@ const sideClass = computed(() => {
   return '';
 });
 
-const isElectronicTenth = computed(() => props.message.badge === 'electronicTenth');
-
 const sideBadge = computed(() => {
   if (sideClass.value === 'is-red-side' || sideClass.value === 'is-blue-side') {
     return props.message.schoolName;
@@ -130,7 +128,7 @@ const addFilterSchool = () => {
 </script>
 
 <template>
-  <article class="danmu-item" :class="[sideClass, { 'is-electronic-tenth': isElectronicTenth }]" tabindex="0" @click="showTooltip" @focus="showTooltip">
+  <article class="danmu-item" :class="[sideClass]" tabindex="0" @click="showTooltip" @focus="showTooltip">
     <aside class="meta-col">
       <p class="school">{{ school }}</p>
       <p class="nickname">{{ nickname }}</p>
@@ -188,33 +186,6 @@ const addFilterSchool = () => {
   box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.1);
 }
 
-/* Pure gold: full gold treatment */
-.danmu-item.is-electronic-tenth:not(.is-red-side):not(.is-blue-side) {
-  border-color: var(--danmu-tenth-border);
-  background: var(--danmu-tenth-bg);
-  box-shadow: var(--danmu-tenth-shadow);
-}
-
-/* Red side + gold: gradient border and background */
-.danmu-item.is-red-side.is-electronic-tenth {
-  border: 1px solid transparent;
-  background:
-    linear-gradient(90deg, rgba(190, 24, 93, 0.5), rgba(161, 121, 3, 0.2) 50%) padding-box;
-  border-color: var(--danmu-tenth-border);
-  box-shadow: var(--danmu-tenth-shadow);
-  box-shadow: none;
-}
-
-/* Blue side + gold: gradient border and background */
-.danmu-item.is-blue-side.is-electronic-tenth {
-  border: 1px solid transparent;
-  background:
-    linear-gradient(90deg, rgba(3, 105, 161, 0.5), rgba(161, 121, 3, 0.2) 50%) padding-box var(--danmu-item-bg);
-  border-color: var(--danmu-tenth-border);
-  box-shadow: var(--danmu-tenth-shadow);
-  box-shadow: none;
-}
-
 .meta-col {
   min-width: 0;
 }
@@ -270,15 +241,15 @@ const addFilterSchool = () => {
 }
 
 .danmu-item.is-red-side .member-tag {
-  --member-tag-color: #fda4af;
-  --member-tag-bg: rgba(190, 24, 93, 0.18);
-  --member-tag-border: rgba(251, 113, 133, 0.32);
+  --danmu-member-tag-color: #fda4af;
+  --danmu-member-tag-bg: rgba(190, 24, 93, 0.18);
+  --danmu-member-tag-border: rgba(251, 113, 133, 0.32);
 }
 
 .danmu-item.is-blue-side .member-tag {
-  --member-tag-color: #7dd3fc;
-  --member-tag-bg: rgba(3, 105, 161, 0.18);
-  --member-tag-border: rgba(56, 189, 248, 0.32);
+  --danmu-member-tag-color: #7dd3fc;
+  --danmu-member-tag-bg: rgba(3, 105, 161, 0.18);
+  --danmu-member-tag-border: rgba(56, 189, 248, 0.32);
 }
 
 .side-badge {

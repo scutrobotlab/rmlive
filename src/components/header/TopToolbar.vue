@@ -8,7 +8,7 @@ import Popover from 'primevue/popover';
 import Select from 'primevue/select';
 import SelectButton from 'primevue/selectbutton';
 import Toolbar from 'primevue/toolbar';
-import { computed, ref } from 'vue';
+import { computed, inject, ref } from 'vue';
 import SettingsDialog from '../dialogs/SettingsDialog.vue';
 import ThemeLogoButton from './ThemeLogoButton.vue';
 import UserProfilePop from './UserProfilePop.vue';
@@ -64,6 +64,8 @@ function toggleMobileAccess(event: Event) {
 }
 
 const settingsVisible = ref(false);
+
+const toggleLicensePopover = inject<(event: Event) => void>('toggleLicensePopover', () => {});
 </script>
 
 <template>
@@ -177,6 +179,16 @@ const settingsVisible = ref(false);
           </a>
         </div>
       </Popover>
+      <Button
+        rounded
+        text
+        size="small"
+        icon="pi pi-verified"
+        severity="contrast"
+        aria-label="查看赛事直播许可信息"
+        @click="toggleLicensePopover"
+      >
+      </Button>
       <Button
         rounded
         text

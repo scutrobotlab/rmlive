@@ -213,4 +213,7 @@ function retry() {
 .retry-btn:hover {
   background: rgba(255, 255, 255, 0.2);
 }
+.player-container {
+  overflow: hidden;
+}
 </style>
