@@ -47,8 +47,7 @@ jobs:
         run: |
           pip install --quiet --break-system-packages coscmd
           coscmd config -a "$TENCENT_SECRET_ID" -s "$TENCENT_SECRET_KEY" -b "$COS_BUCKET" -r "$COS_REGION"
-          # 增量同步：仅上传 md5 有变化的文件，-e 删除远端已不存在的旧哈希资源（保留 clean 语义但不再全量重传）
-          coscmd sync -r -e ./dist/ /
+          coscmd upload -r -f -y ./dist/ /
           # app shell / SW 强制刷新 no-cache 头，避免版本更新后命中旧缓存
           for f in index.html sw.js manifest.webmanifest iframe-inject.js; do
             coscmd upload -f -y -H '{"Cache-Control":"no-cache, no-store, must-revalidate"}' "dist/$f" "/$f"
