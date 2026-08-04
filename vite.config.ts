@@ -24,12 +24,12 @@ export default defineConfig(({ mode }) => {
       },
       resolve: {
         alias: {
-          '@': path.resolve(__dirname, './src'),
+          '@': path.resolve(import.meta.dirname, './src'),
         },
       },
       build: {
         lib: {
-          entry: path.resolve(__dirname, './src/iframe-inject.ts'),
+          entry: path.resolve(import.meta.dirname, './src/iframe-inject.ts'),
           name: 'RmLiveInjector',
           formats: ['iife'],
         },
@@ -184,7 +184,7 @@ export default defineConfig(({ mode }) => {
 
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, './src'),
+        '@': path.resolve(import.meta.dirname, './src'),
       },
     },
     build: {

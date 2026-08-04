@@ -1,3 +1,5 @@
+import { openScheduleNotifyDb, STORE_MATCHES } from './scheduleNotifyDb';
+
 const MAX_LOCALSTORAGE_SIZE = 5 * 1024 * 1024;
 const INDEXEDDB_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -47,7 +49,6 @@ export async function checkStorageQuota(): Promise<void> {
 
 export async function pruneExpiredIndexedDBData(): Promise<void> {
   try {
-    const { openScheduleNotifyDb, STORE_MATCHES } = await import('./scheduleNotifyDb');
     const db = await openScheduleNotifyDb();
 
     return new Promise((resolve) => {

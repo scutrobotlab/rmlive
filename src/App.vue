@@ -4,7 +4,7 @@ import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
 import Popover from 'primevue/popover';
 import Toast from 'primevue/toast';
-import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, provide, ref } from 'vue';
 import TopToolbar from './components/header/TopToolbar.vue';
 import LiveStage from './components/layout/LiveStage.vue';
 import ScheduleArea from './components/layout/ScheduleArea.vue';
@@ -37,6 +37,8 @@ const scheduleNotifyStore = useScheduleNotifyStore();
 
 useScheduleNotifyPolling();
 
+uiStore.initializeUi();
+
 const { selectedZoneChatRoomId } = storeToRefs(dataStore);
 const { runningMatchForSelectedZone, streamLoading, liveGameInfo } = storeToRefs(dataStore);
 
@@ -63,6 +65,8 @@ function onDanmuReset() {
 function toggleLicensePopover(event: Event) {
   licensePopover.value?.toggle(event);
 }
+
+provide('toggleLicensePopover', toggleLicensePopover);
 
 function showLicenseFiles() {
   licensePopover.value?.hide();
@@ -100,7 +104,6 @@ onMounted(() => {
   markPerformance('rm-app-on-mounted');
   requestNotificationPermissionOnLaunch();
   void scheduleNotifyStore.syncPrefsToIdb();
-  uiStore.initializeUi();
   dataStore.startPolling();
   markPerformance('rm-data-start-dispatched');
 });
@@ -116,7 +119,7 @@ onBeforeUnmount(() => {
     <Toast position="top-right" />
     <TopToolbar />
 
-    <aside class="source-notice" aria-label="内容来源声明">
+    <aside v-if="!uiStore.isMobile" class="source-notice" aria-label="内容来源声明">
       <div class="source-summary">
         <img
           :src="roboMasterLogoUrl"
@@ -135,62 +138,52 @@ onBeforeUnmount(() => {
           <span class="rights-notice">赛事直播相关信息及其一切知识产权归 RoboMaster 所有</span>
         </p>
       </div>
-      <Button
-        class="license-button"
-        label="直播授权许可"
-        icon="pi pi-verified"
-        severity="secondary"
-        outlined
-        size="small"
-        aria-label="查看赛事直播许可信息"
-        aria-haspopup="dialog"
-        @click="toggleLicensePopover"
-      />
-      <Popover ref="licensePopover">
-        <section class="license-details" aria-labelledby="license-title">
-          <div class="license-heading">
-            <span class="license-status-icon" aria-hidden="true"><i class="pi pi-verified" /></span>
-            <div>
-              <h2 id="license-title">已获赛事直播许可</h2>
-              <p>RoboMaster 赛事直播授权</p>
-            </div>
-          </div>
-          <dl>
-            <div>
-              <dt>授权内容</dt>
-              <dd>获取 RoboMaster 官方赛事直播流及公开赛事信息，并用于本网站的交互展示。</dd>
-            </div>
-            <div>
-              <dt>授权用途</dt>
-              <dd>仅限非商业性质的观赛、学习与技术交流。</dd>
-            </div>
-            <div>
-              <dt>授权性质</dt>
-              <dd>非独占、不可转让、可撤销。</dd>
-            </div>
-            <div>
-              <dt>有效期限</dt>
-              <dd>
-                <time datetime="2026-07-31">2026 年 7 月 31 日</time>
-                至
-                <time datetime="2026-08-11">2026 年 8 月 11 日</time>
-              </dd>
-            </div>
-          </dl>
-          <div class="license-files">
-            <span class="license-supervision">已按照授权许可整改，请广大网友监督</span>
-            <Button
-              label="查看授权书"
-              icon="pi pi-file"
-              size="small"
-              severity="secondary"
-              text
-              @click="showLicenseFiles"
-            />
-          </div>
-        </section>
-      </Popover>
     </aside>
+
+    <Popover ref="licensePopover">
+      <section class="license-details" aria-labelledby="license-title">
+        <div class="license-heading">
+          <span class="license-status-icon" aria-hidden="true"><i class="pi pi-verified" /></span>
+          <div>
+            <h2 id="license-title">已获赛事直播许可</h2>
+            <p>RoboMaster 赛事直播授权</p>
+          </div>
+        </div>
+        <dl>
+          <div>
+            <dt>授权内容</dt>
+            <dd>获取 RoboMaster 官方赛事直播流及公开赛事信息，并用于本网站的交互展示。</dd>
+          </div>
+          <div>
+            <dt>授权用途</dt>
+            <dd>仅限非商业性质的观赛、学习与技术交流。</dd>
+          </div>
+          <div>
+            <dt>授权性质</dt>
+            <dd>非独占、不可转让、可撤销。</dd>
+          </div>
+          <div>
+            <dt>有效期限</dt>
+            <dd>
+              <time datetime="2026-07-31">2026 年 7 月 31 日</time>
+              至
+              <time datetime="2026-08-11">2026 年 8 月 11 日</time>
+            </dd>
+          </div>
+        </dl>
+        <div class="license-files">
+          <span class="license-supervision">已按照授权许可整改，请广大网友监督</span>
+          <Button
+            label="查看授权书"
+            icon="pi pi-file"
+            size="small"
+            severity="secondary"
+            text
+            @click="showLicenseFiles"
+          />
+        </div>
+      </section>
+    </Popover>
 
     <Dialog
       v-model:visible="licenseFilesVisible"
@@ -322,12 +315,6 @@ onBeforeUnmount(() => {
 
 .source-link-icon {
   font-size: 0.8em;
-}
-
-.license-button {
-  flex: 0 0 auto;
-  margin-left: auto;
-  white-space: nowrap;
 }
 
 .license-details {
@@ -503,11 +490,6 @@ onBeforeUnmount(() => {
 
   .rights-notice {
     font-size: 0.72rem;
-  }
-
-  .license-button {
-    width: 100%;
-    margin-left: 0;
   }
 
   .license-file-pages {

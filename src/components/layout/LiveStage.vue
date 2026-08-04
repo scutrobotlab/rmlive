@@ -202,6 +202,10 @@ function onDanmuReset() {
   align-items: stretch;
 }
 
+.desktop-live-splitter :deep(.p-splitter-gutter) {
+  background: transparent;
+}
+
 .live-panel-wrap {
   min-width: 0;
 }
